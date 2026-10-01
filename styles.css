@@ -447,3 +447,16 @@ ul.sim-status li.warn{background:#fdecec;color:#b3261e}
 .sim-method summary{cursor:pointer;color:var(--primary);font-weight:600;font-size:14px;padding:6px 0}
 .sim-method p{margin:8px 0 0}
 @media (max-width:520px){.sim-grid3{grid-template-columns:1fr 1fr}.sim-details>div{grid-template-columns:1fr}}
+
+/* 3D / 2D mode + drawing sheets */
+.v3d-top{display:flex;flex-wrap:wrap;gap:var(--s3);justify-content:space-between;align-items:center;margin-bottom:var(--s4)}
+.v3d-top .seg{margin:0}
+.v3d-stage[hidden]{display:none}
+.draw[hidden]{display:none}
+.draw-bar{display:flex;flex-wrap:wrap;gap:var(--s3);justify-content:space-between;align-items:center;margin-bottom:var(--s3)}
+.draw-bar .seg{margin:0}
+.draw-actions{display:flex;gap:var(--s2);flex-wrap:wrap}
+.draw-sheet{background:#e8e8ed;border-radius:var(--r-lg);padding:var(--s4);overflow:auto;min-height:300px;display:grid;place-items:center}
+.draw-sheet img{width:100%;max-width:1400px;height:auto;background:#fff}
+.draw-wait{color:var(--text-2);margin:0}
+@media (max-width:700px){.draw-sheet{padding:8px}.draw-sheet img{width:200%;max-width:none}}

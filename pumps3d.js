@@ -161,7 +161,8 @@ function beltGuardGeometry(r1, r2, d, depth) {
   s.absarc(d, 0, r2, th, -th, true);
   s.lineTo(r1 * Math.cos(th), -r1 * Math.sin(th));
   s.absarc(0, 0, r1, -th, th - Math.PI * 2, true);
-  const geo = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 4, curveSegments: 48 });
+  let pts = s.getPoints(64); if (THREE.ShapeUtils.isClockWise(pts)) pts = pts.reverse();
+  const geo = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 4, curveSegments: 48 });
   geo.translate(0, 0, -depth / 2);
   return geo;
 }
@@ -534,7 +535,7 @@ function triplexPlunger() {
       valveObjs.filter(o => o.i === i).forEach(o => { o.v.position.y = o.base + 0.012 * Math.max(0, o.d > 0 ? v : -v); });
     });
   }
-  return { parts: P, update, velocity, setGeom, cylinders: 3, flows, gauges: [dG], camera: [2.1, 1.3, 1.95], target: [0.0, 0.3, 0.1], rpm: 300, driveRatio: 1440 / 300 };
+  return { parts: P, update, velocity, setGeom, cylinders: 3, flows, gauges: [dG], drawing: { title: 'HIGH PRESSURE TRIPLEX PLUNGER PUMP', elev: [1, 0, 0], section: { n: [1, 0, 0], c: 0 }, axes: [[[0, 0.3, -0.62], [0, 0.3, 1.05]], [[-0.62, 0.3, -0.33], [0.78, 0.3, -0.33]]], plunger: [0, 0.3, 0.36] }, camera: [2.1, 1.3, 1.95], target: [0.0, 0.3, 0.1], rpm: 300, driveRatio: 1440 / 300 };
 }
 
 // BPPL metering pump: motor on pedestal, coupling, worm + worm wheel, polar crank, plunger liquid head with ball valves
@@ -647,7 +648,7 @@ function meteringPump() {
     const v = -deriv(plungerPos, a);               // + when the plunger moves into the head (discharge)
     bD.position.set(0, 0.095 + 0.012 * Math.max(0, v), 0); bS.position.set(0, -0.075 + 0.012 * Math.max(0, -v), 0);
   }
-  return { parts: P, update, velocity, setGeom, cylinders: 1, flows, gauges: [mG], strokeAdjustable: true, rpm: 100, camera: [1.05, 0.95, 1.5], target: [0.12, 0.33, 0],
+  return { parts: P, update, velocity, setGeom, cylinders: 1, flows, gauges: [mG], drawing: { title: 'CONTROLLED VOLUME METERING PUMP', elev: [0, 0, 1], section: { n: [0, 0, 1], c: 0.02 }, axes: [[[0.2, 0.27, 0.02], [0.7, 0.27, 0.02]], [[-0.7, 0.23, 0], [0.05, 0.23, 0]]], plunger: [0.39, 0.27, 0.02] }, strokeAdjustable: true, rpm: 100, camera: [1.05, 0.95, 1.5], target: [0.12, 0.33, 0],
     extraLabels: [['Discharge valve', [0.41, 0.52, 0.02]], ['Suction valve', [0.41, 0.04, 0.02]]], extraOwner: 'Plunger liquid head' };
 }
 
@@ -752,7 +753,7 @@ function triplexMetering() {
       plObjs[i].position.z = k.sz + 0.07;
     });
   }
-  return { parts: P, update, velocity, setGeom, cylinders: 3, flows, gauges: [tG], strokeAdjustable: true, rpm: 100, camera: [1.7, 1.15, 2.05], target: [0.2, 0.36, 0.15],
+  return { parts: P, update, velocity, setGeom, cylinders: 3, flows, gauges: [tG], drawing: { title: 'TRIPLEX METERING PUMP', elev: [0, 0, 1], section: { n: [1, 0, 0], c: 0 }, axes: [[[0, 0.36, -0.32], [0, 0.36, 0.72]], [[-0.6, 0.36, -0.12], [0.6, 0.36, -0.12]]], plunger: [0, 0.36, 0.42] }, strokeAdjustable: true, rpm: 100, camera: [1.7, 1.15, 2.05], target: [0.2, 0.36, 0.15],
     extraLabels: [['Discharge valve & port', [-0.3, 0.76, 0.5]], ['Suction valve & port', [-0.3, -0.06, 0.5]]], extraOwner: 'Liquid heads (×3)' };
 }
 
@@ -852,7 +853,7 @@ function testPump() {
     rodG.position.set(cx, cyy, 0.03); rodG.rotation.z = Math.atan2(-dy, cx - sx);
     xh.position.set(sx - 0.02, py, 0.02); plunger.position.set(sx - 0.13, py, 0.02);
   }
-  return { parts: P, update, velocity, setGeom, cylinders: 1, flows, gauges: [hG], rpm: 400, camera: [-1.2, 1.1, 1.8], target: [-0.05, 0.52, 0.05] };
+  return { parts: P, update, velocity, setGeom, cylinders: 1, flows, gauges: [hG], drawing: { title: 'MOTORISED HYDRAULIC TEST PUMP  WELL TEST UFF-30', elev: [0, 0, 1], section: { n: [0, 0, 1], c: 0.02 }, axes: [[[-0.55, 0.3, 0.02], [0.05, 0.3, 0.02]]], plunger: [-0.36, 0.3, 0.02] }, rpm: 400, camera: [-1.2, 1.1, 1.8], target: [-0.05, 0.52, 0.05] };
 }
 
 export const MODELS = {
@@ -1122,6 +1123,7 @@ export function createViewer(el, opts = {}) {
 
   function resize() {
     const w = el.clientWidth, h = el.clientHeight;
+    if (!w || !h) return;                       // stage hidden (2D drawing mode)
     renderer.setSize(w, h); labels.setSize(w, h);
     if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
     camera.aspect = w / h;
@@ -1196,7 +1198,134 @@ export function createViewer(el, opts = {}) {
     labels.render(scene, camera);
   });
 
+  // ================= 2D drafting: orthographic outline views (no hidden lines), section with hatched cut faces
+  const draftMat = new THREE.ShaderMaterial({
+    side: THREE.DoubleSide, clipping: true, uniforms: { cut: { value: 0 } },
+    vertexShader: `#include <common>
+      #include <clipping_planes_pars_vertex>
+      varying vec3 vN;
+      void main() {
+        vN = normalize(normalMatrix * normal);
+        #include <begin_vertex>
+        #include <project_vertex>
+        #include <clipping_planes_vertex>
+      }`,
+    fragmentShader: `#include <clipping_planes_pars_fragment>
+      varying vec3 vN; uniform float cut;
+      void main() {
+        #include <clipping_planes_fragment>
+        vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n;
+        gl_FragColor = vec4(n * 0.5 + 0.5, (gl_FrontFacing || cut < 0.5) ? 1.0 : 0.5);   // alpha 0.5 marks cut (inside) faces
+      }`,
+  });
+  const edgeMat = new THREE.ShaderMaterial({
+    uniforms: { tN: { value: null }, tD: { value: null }, res: { value: new THREE.Vector2() }, range: { value: 1 }, hatch: { value: 14 }, w: { value: 1 } },
+    vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+    fragmentShader: `uniform sampler2D tN, tD; uniform vec2 res; uniform float range, hatch, w;
+      float dep(vec2 uv) { return texture2D(tD, uv).x * range; }
+      void main() {
+        vec2 uv = gl_FragCoord.xy / res, px = w / res;
+        vec4 c = texture2D(tN, uv); float d = dep(uv), e = 0.0;
+        vec3 n = c.rgb * 2.0 - 1.0;
+        for (int i = 0; i < 8; i++) {
+          vec2 o = i == 0 ? vec2(px.x, 0.) : i == 1 ? vec2(-px.x, 0.) : i == 2 ? vec2(0., px.y) : i == 3 ? vec2(0., -px.y)
+                 : i == 4 ? px : i == 5 ? -px : i == 6 ? vec2(px.x, -px.y) : vec2(-px.x, px.y);
+          vec4 cn = texture2D(tN, uv + o);
+          if (abs(cn.a - c.a) > 0.25) e = 1.0;                                   // outline against background / cut face
+          else if (c.a > 0.25) {
+            if (abs(dep(uv + o) - d) > 0.006) e = 1.0;                             // depth step between surfaces
+            if (dot(cn.rgb * 2.0 - 1.0, n) < 0.82) e = 1.0;                        // crease
+          }
+        }
+        vec3 col = vec3(1.0);
+        if (c.a > 0.25 && c.a < 0.75) col = mod(gl_FragCoord.x + gl_FragCoord.y, hatch) < 2.2 ? vec3(0.1) : vec3(1.0);   // 45° section hatching
+        if (e > 0.5) col = vec3(0.0);
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+    depthTest: false, depthWrite: false,
+  });
+  const quadScene = new THREE.Scene(), quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  quadScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), edgeMat));
+
+  function draftPrepare() {
+    const saved = [];
+    current.parts.forEach(p => p.obj.position.copy(p.base));                     // assembled, not exploded
+    scene.traverse(o => {
+      if (!o.isMesh && !o.isInstancedMesh) return;
+      const inModel = (() => { let q = o; while (q) { if (q === current.root) return true; q = q.parent; } return false; })();
+      const hide = !inModel || (o.material && o.material.transparent);           // floor, liquid, bubbles, glass, decals
+      saved.push([o, o.visible]); if (hide) o.visible = false;
+    });
+    return saved;
+  }
+  function modelBox() {
+    const box = new THREE.Box3(), tmp = new THREE.Box3();
+    current.root.updateMatrixWorld(true);
+    current.root.traverse(o => {
+      if (!o.isMesh || !o.visible) return;
+      let q = o; while (q) { if (!q.visible) return; q = q.parent; }
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      tmp.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); box.union(tmp);
+    });
+    return box;
+  }
+  // one orthographic view. dir: direction from the model towards the eye; up: screen-up world vector.
+  // Returns { canvas, w, h, toPx(worldPoint) } at pxPerM pixels per metre (or just the extents when measure = true).
+  function draftView({ dir, up = [0, 1, 0], section = null, pxPerM = 1000, measure = false, ss = 2 }) {
+    if (!current) return null;
+    const wasXray = xray; if (xray) { xray = false; applyXray(); }              // drafting always shows solid parts
+    const saved = draftPrepare();
+    const restore = () => { saved.forEach(([o, vis]) => o.visible = vis); if (wasXray) { xray = true; applyXray(); } };
+    const box = modelBox(), ctr = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length();
+    const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, size * 4);
+    const d = new THREE.Vector3(...dir).normalize();
+    cam.up.set(...up); cam.position.copy(ctr).addScaledVector(d, size * 2); cam.lookAt(ctr); cam.updateMatrixWorld(true);
+    let plane = null;
+    if (section) { const n = new THREE.Vector3(...section.n).normalize(); plane = new THREE.Plane(n.clone().negate(), section.c); }
+    // extents in camera space (clipped half only, for a section)
+    const inv = cam.matrixWorldInverse, v = new THREE.Vector3();
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (let i = 0; i < 8; i++) {
+      v.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z);
+      if (plane && plane.distanceToPoint(v) < 0) v.addScaledVector(plane.normal, -plane.distanceToPoint(v));
+      v.applyMatrix4(inv); x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y);
+    }
+    const res = { wM: x1 - x0, hM: y1 - y0 };
+    if (measure) { restore(); return res; }
+    const pad = 5 / pxPerM; x0 -= pad; x1 += pad; y0 -= pad; y1 += pad;          // margin so extreme outlines are drawn
+    Object.assign(cam, { left: x0, right: x1, top: y1, bottom: y0 }); cam.updateProjectionMatrix();
+    const w = Math.max(8, Math.round((x1 - x0) * pxPerM)), h = Math.max(8, Math.round((y1 - y0) * pxPerM)), W = w * ss, H = h * ss;
+    const rtN = new THREE.WebGLRenderTarget(W, H, { depthTexture: new THREE.DepthTexture(W, H), samples: 0 });
+    const rtO = new THREE.WebGLRenderTarget(W, H);
+    const prevClear = renderer.getClearColor(new THREE.Color()), prevAlpha = renderer.getClearAlpha(), prevClip = renderer.localClippingEnabled;
+    draftMat.clippingPlanes = plane ? [plane] : []; draftMat.uniforms.cut.value = plane ? 1 : 0;
+    renderer.localClippingEnabled = true;
+    scene.overrideMaterial = draftMat;
+    renderer.setClearColor(0x000000, 0);
+    renderer.setRenderTarget(rtN); renderer.clear(); renderer.render(scene, cam);
+    scene.overrideMaterial = null;
+    edgeMat.uniforms.tN.value = rtN.texture; edgeMat.uniforms.tD.value = rtN.depthTexture;
+    edgeMat.uniforms.res.value.set(W, H); edgeMat.uniforms.range.value = cam.far - cam.near;
+    edgeMat.uniforms.hatch.value = 12 * ss; edgeMat.uniforms.w.value = 1.0 * ss * 0.75;
+    renderer.setRenderTarget(rtO); renderer.render(quadScene, quadCam);
+    const buf = new Uint8Array(W * H * 4); renderer.readRenderTargetPixels(rtO, 0, 0, W, H, buf);
+    renderer.setRenderTarget(null); renderer.setClearColor(prevClear, prevAlpha); renderer.localClippingEnabled = prevClip;
+    rtN.depthTexture.dispose(); rtN.dispose(); rtO.dispose();
+    restore();
+    // flip into a canvas and downsample (supersampling gives clean, even line weights)
+    const big = document.createElement('canvas'); big.width = W; big.height = H;
+    const bctx = big.getContext('2d'), img = bctx.createImageData(W, H);
+    for (let y = 0; y < H; y++) img.data.set(buf.subarray((H - 1 - y) * W * 4, (H - y) * W * 4), y * W * 4);
+    bctx.putImageData(img, 0, 0);
+    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d'); ctx.imageSmoothingQuality = 'high'; ctx.drawImage(big, 0, 0, w, h);
+    const toPx = p => { const q = new THREE.Vector3(...p).applyMatrix4(inv); return [(q.x - x0) * pxPerM, (y1 - q.y) * pxPerM]; };
+    return { canvas, w, h, wM: res.wM, hM: res.hM, toPx };
+  }
+
   return {
+    draftView,
+    get drawing() { return current ? current.spec.drawing : null; },
     load, reset, setAngle,
     setExploded(on) { explodeTarget = on ? 1 : 0; },
     setLabels(on) { showLabels = on; current && current.labelObjs.forEach(l => l.visible = on); },

@@ -8,7 +8,7 @@
 <link rel="icon" href="logo_uday.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=202610020019">
+<link rel="stylesheet" href="styles.css?v=202610020043">
 <script>document.documentElement.classList.add("js")</script>
 </head><body>
 <nav class="nav" aria-label="Main"><div class="in">
@@ -23,7 +23,10 @@
   <p class="lead">Drag to rotate, scroll or pinch to zoom. Switch on the exploded view to see how each pump is put together.</p>
 </div></section>
 <section class="v3d-wrap"><div class="wrap-wide">
-  <div class="seg v3d-tabs" role="tablist" aria-label="Choose a pump"><button type="button" data-model="triplex" aria-pressed="true">Triplex plunger pump</button><button type="button" data-model="metering" aria-pressed="false">Metering / dosing pump</button><button type="button" data-model="triplex-metering" aria-pressed="false">Triplex metering pump</button><button type="button" data-model="test-pump" aria-pressed="false">Hydraulic test pump</button></div>
+  <div class="v3d-top">
+    <div class="seg v3d-tabs" role="tablist" aria-label="Choose a pump"><button type="button" data-model="triplex" aria-pressed="true">Triplex plunger pump</button><button type="button" data-model="metering" aria-pressed="false">Metering / dosing pump</button><button type="button" data-model="triplex-metering" aria-pressed="false">Triplex metering pump</button><button type="button" data-model="test-pump" aria-pressed="false">Hydraulic test pump</button></div>
+    <div class="seg v3d-mode" role="group" aria-label="View mode"><button type="button" data-mode="3d" aria-pressed="true">3D model</button><button type="button" data-mode="2d" aria-pressed="false">2D drawing</button></div>
+  </div>
   <div class="v3d-stage" id="v3d" role="img" aria-label="Interactive 3D model of the selected UDAY pump">
     <noscript><p class="v3d-fallback">The 3D viewer needs JavaScript. <a href="index.html#products">See product photos</a>.</p></noscript>
     <p class="v3d-loading" id="v3dLoading">Loading 3D model…</p>
@@ -40,6 +43,14 @@
       <button type="button" class="chip-btn" id="tRotate" aria-pressed="true">Auto-rotate</button>
       <button type="button" class="chip-btn" id="tReset">Reset view</button>
     </div>
+  </div>
+  <div class="draw" id="draw" hidden>
+    <div class="draw-bar">
+      <div class="seg" role="group" aria-label="Drawing sheet"><button type="button" data-sheet="0" aria-pressed="true">Sheet 1 · General arrangement</button><button type="button" data-sheet="1" aria-pressed="false">Sheet 2 · Section A–A &amp; parts list</button></div>
+      <div class="draw-actions"><button type="button" class="chip-btn" id="dPng">Download PNG</button><button type="button" class="chip-btn" id="dPdf">Print / save as PDF</button></div>
+    </div>
+    <div class="draw-sheet"><p class="draw-wait" id="drawWait">Drafting views…</p><img id="drawImg" alt="Engineering drawing sheet" hidden></div>
+    <p class="table-note">A3 landscape, first-angle projection (BIS SP 46 / ISO 5456-2), outline views without hidden lines, hatched section through the plunger axis. The drawing follows the model, plunger, speed and pressure selected in the simulator below. Envelope dimensions are indicative (REF); plunger diameter, stroke and ratings come from BPPL data.</p>
   </div>
   <div class="sim" id="sim">
     <div class="sim-controls">
@@ -128,7 +139,7 @@
   var els=document.querySelectorAll('.reveal');
   if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{rootMargin:'0px 0px -8% 0px'});els.forEach(function(e){io.observe(e)})}
   else els.forEach(function(e){e.classList.add('in')});
-  document.querySelectorAll('.seg').forEach(function(seg){
+  document.querySelectorAll('.seg[data-for]').forEach(function(seg){
     var tbl=document.getElementById(seg.dataset.for);
     seg.addEventListener('click',function(ev){var btn=ev.target.closest('button');if(!btn)return;
       seg.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===btn)});
@@ -137,7 +148,8 @@
 })();
 </script><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 <script type="module">
-import { createViewer, MODELS, niceGaugeMax } from './pumps3d.js?v=202610020019';
+import { createViewer, MODELS, niceGaugeMax } from './pumps3d.js?v=202610020043';
+import { composeSheets } from './drafting.js?v=202610020043';
 const stage = document.getElementById('v3d');
 let viewer;
 try { viewer = createViewer(stage); } catch (e) {
@@ -227,7 +239,7 @@ function pulsation(n, lam = 0.2) {
   return (mx - mn) / (sum / N);
 }
 const PULSE = { 1: pulsation(1), 3: pulsation(3) };
-let simKey = 'triplex';
+let simKey = 'triplex', simState = null, mode = '3d';
 const fam = key => key === 'triplex' ? SIM.triplex : key === 'test-pump' ? SIM.uff : SIM.metering;
 function simOptions(key) {
   const mSel = simEl('simModel');
@@ -353,6 +365,8 @@ function simUpdate() {
     <p><b>Engineering assumptions (typical values, not BPPL test data):</b> volumetric slip ${fmt((1 - eta0) * 100)} %; clearance-to-swept volume ratio ${C}; mechanical efficiency ${key === 'test-pump' ? 'from chart' : fmt({ triplex: 90, metering: 50, 'triplex-metering': 80 }[key]) + ' %'}; relief valve set at the rated pressure with 10 % accumulation; connecting-rod ratio r/L = 0.2; dampener removes ~90 % of pulsation; pipe friction factor 0.025; 1.0 m valve loss in NPSH required; Hydraulic Institute acceleration-head constants; liquid properties at about 25 °C; open tank at sea level.</p>
     <p>For a guaranteed duty point, send the enquiry: BPPL engineers confirm the selection against the actual liquid, temperature and piping.</p>`;
   simEl('oQuote').href = `contact.html?product=${key}&model=${encodeURIComponent(m.model + (key === 'test-pump' ? '' : ' / ' + d + ' mm plunger') + ' / ' + liq.name + ' / ' + N + ' ' + unit)}&flow=${encodeURIComponent(fmt(lph, 1) + ' l/h')}&press=${encodeURIComponent(fmt(P, 1))}`;
+  simState = { key, model: m.model, d, stroke: s, strokeFull: m.stroke, strokePct, N, unit, lph, P, Prated, Pshaft, motor, liq: liq.name, rodRating: m.rodRating, n };
+  if (mode === '2d') scheduleDraw();
   // drive the 3D model with the same numbers
   const real = simEl('simReal').checked;
   viewer.setGeom({ stroke: m.stroke, d: d / 1000, ratio: 1440 / N });
@@ -370,6 +384,63 @@ simEl('simFlow').addEventListener('change', () => {
   const on = simEl('simFlow').checked;
   if (on !== (tXray.getAttribute('aria-pressed') === 'true')) tXray.click();
   simUpdate();
+});
+// ---------- 2D engineering drawing mode
+const BOM = [["501", "Main body", "C.I.", "1"], ["502", "Top cover", "C.I.", "1"], ["503", "Bearing cover (I)", "C.I.", "1"], ["504", "Bearing cover (II)", "C.I.", "1"], ["505", "Drain plug", "M.S.", "1"], ["506", "Crank shaft", "EN24", "1"], ["507", "Connecting rod", "STD", "3"], ["508", "Piston", "C.S.", "3"], ["509", "Sleeve nut", "C.I.", "3"], ["510", "Sleeve", "C.I.", "3"], ["511", "Plunger side oil seal", "", "3"], ["512", "Bearing cover side oil seal", "", "1"], ["513", "Crank shaft bearing", "", "2"], ["514", "Piston pin", "STD", "3"], ["515", "Allen pin for connecting rod", "UNbr", "6"], ["516", "Window cover", "C.I.", "1"], ["517", "Gauge glass cover", "C.I.", "1"], ["518", "Gauge glass", "PL.", "1"], ["519", "Allen pin for gauge glass cover", "STD", "1"], ["520", "Hex bolt for bearing cover", "STD", "12"], ["521", "Hex bolt for window cover", "STD", "8"], ["522", "Air plug", "C.S.", "1"], ["523", "Hex bolt for top cover", "STD", "12"], ["524", "Gazanpin lock", "STD", "6"], ["530", "Liquid end body (block)", "SS", "3"], ["531", "Gland", "SS", "3"], ["532", "Gland nut", "SS", "3"], ["533", "Gland packing", "PTFE", "3 sets"], ["534", "Round collar", "C.I.", "3"], ["535", "Plunger", "SS", "3"], ["536", "Liquid end holding flat", "M.S.", "3"], ["537", "Hex bolt for liquid end holding flat", "SS", "6"], ["538", "Discharge valve seat (II)", "SS", "3"], ["539", "Discharge valve seat (I)", "SS", "3"], ["540", "Suction valve seat (II)", "SS", "3"], ["541", "Suction valve seat (I)", "SS", "3"], ["542", "Valve", "SS", "6"], ["543", "Valve seat gasket", "Teflon", "12"], ["544", "Discharge header", "SS", "1"], ["545", "Suction header", "SS", "1"], ["546", "Header holding flat", "M.S.", "6"], ["547", "Stud", "M.S.", "8"], ["548", "Nuts for stud", "M.S.", "16"], ["549", "Spring", "\u2014", "6"]];
+let sheets = [], sheetIx = 0, drawTimer = null;
+function drawingInfo() {
+  const st = simState, dwg = viewer.drawing;
+  const date = new Date().toISOString().slice(0, 10);
+  const tag = st.model.replace(/[^A-Z0-9]/gi, '') + (st.key === 'test-pump' ? '' : '-' + st.d);
+  const tech = [
+    ['Model', st.model + (st.key === 'test-pump' ? '' : ` / ${st.d} mm plunger`)],
+    ['Type', dwg.title.toLowerCase().replace(/\w/g, c => c.toUpperCase())],
+    ['Plunger dia. × stroke', `Ø${st.d} × ${fmt(st.stroke * 1000, 1)} mm${st.strokePct < 1 ? ` (${Math.round(st.strokePct * 100)} % setting)` : ''}`],
+    ['No. of plungers', String(st.n)],
+    ['Speed', `${fmt(st.N)} ${st.unit}`],
+    ['Max. working pressure', `${fmt(st.Prated)} kg/cm² (${fmt(st.Prated * 0.980665, 0)} bar)`],
+    ['Duty flow / pressure', `${fmt(st.lph, 1)} l/h at ${fmt(st.P, 1)} kg/cm²`],
+    ['Liquid', st.liq],
+    ['Shaft power at duty', `${fmt(st.Pshaft, st.Pshaft < 1 ? 2 : 1)} kW`],
+    ['Motor', `${fmt(st.motor, st.motor < 1 ? 2 : 1)} kW, 4-pole, 1440 RPM`],
+  ];
+  if (st.rodRating) tech.push(['Frame rod-load rating', `${fmt(st.rodRating * 9.80665 / 1000, 1)} kN`]);
+  if (st.key === 'test-pump') tech.push(['Pump head envelope (BPPL drg.)', '442 × 205 mm'], ['Drive shaft (BPPL drg.)', 'Ø28 mm, key 50 × 8 × 4']);
+  let bom;
+  if (st.key === 'triplex') bom = BOM.map((r, i) => [i + 1, ...r]);
+  else bom = viewer.getParts().map((p, i) => [i + 1, p.code || '—', p.name, '—', '1']);
+  return { title: dwg.title, model: st.model, drgNo: 'BPPL-GA-' + tag, date, techData: tech, bom,
+    plungerNote: `PLUNGER Ø${st.d}   STROKE ${fmt(st.stroke * 1000, 1)}   MAX ${fmt(st.Prated)} kg/cm²` };
+}
+function showSheet(i) {
+  sheetIx = i;
+  document.querySelectorAll('[data-sheet]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.sheet === i));
+  const img = simEl('drawImg');
+  if (sheets[i]) { img.src = sheets[i].toDataURL('image/png'); img.hidden = false; simEl('drawWait').hidden = true; }
+}
+function scheduleDraw() {
+  clearTimeout(drawTimer); simEl('drawWait').hidden = false;
+  drawTimer = setTimeout(() => { if (!simState) return; sheets = composeSheets(viewer, drawingInfo()); showSheet(sheetIx); }, 60);
+}
+function setMode(mdl) {
+  mode = mdl;
+  document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === mdl));
+  stage.hidden = mdl === '2d'; simEl('draw').hidden = mdl !== '2d';
+  document.querySelector('.v3d-hint').hidden = mdl === '2d';
+  if (mdl === '2d') scheduleDraw(); else viewer.reset();
+}
+document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => setMode(b.dataset.mode)));
+document.querySelectorAll('[data-sheet]').forEach(b => b.addEventListener('click', () => showSheet(+b.dataset.sheet)));
+simEl('dPng').addEventListener('click', () => {
+  const info = drawingInfo(), a = document.createElement('a');
+  a.href = sheets[sheetIx].toDataURL('image/png'); a.download = `${info.drgNo}-${sheetIx + 1}.png`; a.click();
+});
+simEl('dPdf').addEventListener('click', () => {
+  const info = drawingInfo(), w = window.open('', '_blank');
+  if (!w) return;
+  w.document.write(`<!doctype html><title>${info.drgNo}</title><style>@page{size:A3 landscape;margin:0}html,body{margin:0}img{width:100%;display:block;page-break-after:always}</style>` +
+    sheets.map(c => `<img src="${c.toDataURL('image/png')}">`).join('') + '<script>window.onload=()=>setTimeout(()=>print(),300)<\/script>');
+  w.document.close();
 });
 function show(key, push) {
   if (!MODELS[key]) key = 'triplex';
@@ -396,5 +467,11 @@ show(location.hash.slice(1) || 'triplex');
 const q = new URLSearchParams(location.search);
 if (q.has('explode')) { viewer.setExploded(true); tExplode.setAttribute('aria-pressed', 'true'); }
 if (q.has('xray')) tXray.click();
+// export hook: ?sheets=1#model renders the drawing set as two A3 pages (used to make the PDF drawing sets)
+if (q.has('sheets')) setTimeout(() => {
+  setMode('2d'); clearTimeout(drawTimer);
+  const set = composeSheets(viewer, drawingInfo());
+  document.body.innerHTML = '<style>@page{size:A3 landscape;margin:0}html,body{margin:0;background:#fff}img{width:420mm;height:296mm;display:block;page-break-after:always}img:last-child{page-break-after:auto}</style>' + set.map(c => `<img src="${c.toDataURL('image/png')}">`).join('');
+}, 1500);
 </script>
 </body></html>
