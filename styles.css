@@ -347,3 +347,29 @@ table.compare td:first-child{white-space:nowrap}
 }
 .balance{text-wrap:balance;max-width:980px;margin-left:auto;margin-right:auto}
 h1,h2{text-wrap:balance}
+
+/* ================= 3D viewer ================= */
+.v3d-wrap{padding:0 0 var(--s9)}
+.v3d-tabs{margin:0 0 var(--s4)}
+.v3d-stage{position:relative;height:min(68vh,640px);min-height:380px;border-radius:var(--r-xl);overflow:hidden;
+  background:radial-gradient(ellipse at 50% 35%,#ffffff 0%,#f5f5f7 60%,#ececf0 100%);touch-action:none}
+.v3d-stage canvas{display:block;width:100%;height:100%;cursor:grab}
+.v3d-stage canvas:active{cursor:grabbing}
+.v3d-labels{position:absolute;inset:0;pointer-events:none}
+.v3d-label{display:inline-flex;align-items:center;gap:6px;font:600 12px/1 var(--font);letter-spacing:-.01em;color:var(--text);
+  background:rgba(255,255,255,.92);border:1px solid var(--hairline);border-radius:var(--r-pill);padding:6px 10px;white-space:nowrap}
+.v3d-label .dot{width:6px;height:6px;border-radius:50%;background:var(--primary)}
+.v3d-loading,.v3d-fallback{position:absolute;inset:0;display:grid;place-items:center;color:var(--text-2);margin:0}
+.v3d-tools{position:absolute;left:var(--s4);right:var(--s4);bottom:var(--s4);display:flex;flex-wrap:wrap;gap:var(--s2);justify-content:center;z-index:2}
+.chip-btn{font:400 14px var(--font);letter-spacing:-.01em;color:var(--text);background:rgba(255,255,255,.9);border:1px solid #d2d2d7;
+  border-radius:var(--r-pill);padding:8px 16px;cursor:pointer;-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+.chip-btn[aria-pressed=true]{background:var(--primary);border-color:var(--primary);color:#fff}
+.chip-btn:active{transform:scale(.97)}
+.v3d-info{display:grid;grid-template-columns:1.3fr 1fr;gap:var(--s5) var(--s7);align-items:start;margin-top:var(--s6)}
+.v3d-info[hidden]{display:none}
+.v3d-info .ctas{grid-column:1/-1;margin-top:0}
+.v3d-specs{margin:0}
+.v3d-specs>div{display:flex;justify-content:space-between;gap:var(--s4);padding:var(--s3) 0;border-top:1px solid var(--hairline)}
+.v3d-specs dt{color:var(--text-2)}
+.v3d-specs dd{margin:0;font-weight:600}
+@media (max-width:820px){.v3d-info{grid-template-columns:1fr}.v3d-stage{height:min(62vh,500px);min-height:340px}.v3d-tabs{max-width:100%}.v3d-label{font-size:11px;padding:5px 8px}}

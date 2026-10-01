@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>3D Pump Viewer | UDAY Pumps by Bhagyoday Pumps, India</title>
+<meta name="description" content="Rotate and explore interactive 3D models of UDAY triplex plunger pumps, metering pumps, triplex metering pumps and hydraulic test pumps.">
+<meta property="og:title" content="3D Pump Viewer | UDAY Pumps by Bhagyoday Pumps, India"><meta property="og:description" content="Rotate and explore interactive 3D models of UDAY triplex plunger pumps, metering pumps, triplex metering pumps and hydraulic test pumps.">
+<meta property="og:image" content="triplex_photo.jpg">
+<link rel="icon" href="logo_uday.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script>document.documentElement.classList.add("js")</script>
+</head><body>
+<nav class="nav" aria-label="Main"><div class="in">
+<a class="brand" href="index.html" aria-label="Bhagyoday Pumps Pvt. Ltd. home"><img src="logo_bppl.png" alt="Bhagyoday Pumps Pvt. Ltd." width="134" height="42"></a>
+<button class="menu-btn" aria-label="Menu" aria-expanded="false" aria-controls="menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 8h16M4 16h16"/></svg></button>
+<ul id="menu"><li><a href="index.html#products">Products</a></li><li><a href="3d-view.html" aria-current=page>3D View</a></li><li><a href="index.html#industries">Industries</a></li><li><a href="index.html#why">Why BPPL</a></li><li><a href="index.html#how">How to buy</a></li><li><a href="index.html#faq">FAQ</a></li><li><a href="contact.html">Contact</a></li></ul>
+<a class="btn cta-desk" href="contact.html">Get a quote</a>
+</div></nav>
+<main>
+<section class="hero" style="padding-bottom:40px"><div class="wrap">
+  <p class="eyebrow">3D pump viewer</p><h1 class="display balance">See our pumps from every side.</h1>
+  <p class="lead">Drag to rotate, scroll or pinch to zoom. Switch on the exploded view to see how each pump is put together.</p>
+</div></section>
+<section class="v3d-wrap"><div class="wrap-wide">
+  <div class="seg v3d-tabs" role="tablist" aria-label="Choose a pump"><button type="button" data-model="triplex" aria-pressed="true">Triplex plunger pump</button><button type="button" data-model="metering" aria-pressed="false">Metering / dosing pump</button><button type="button" data-model="triplex-metering" aria-pressed="false">Triplex metering pump</button><button type="button" data-model="test-pump" aria-pressed="false">Hydraulic test pump</button></div>
+  <div class="v3d-stage" id="v3d" role="img" aria-label="Interactive 3D model of the selected UDAY pump">
+    <noscript><p class="v3d-fallback">The 3D viewer needs JavaScript. <a href="index.html#products">See product photos</a>.</p></noscript>
+    <p class="v3d-loading" id="v3dLoading">Loading 3D model…</p>
+    <div class="v3d-tools">
+      <button type="button" class="chip-btn" id="tExplode" aria-pressed="false">Exploded view</button>
+      <button type="button" class="chip-btn" id="tLabels" aria-pressed="true">Part labels</button>
+      <button type="button" class="chip-btn" id="tRotate" aria-pressed="true">Auto-rotate</button>
+      <button type="button" class="chip-btn" id="tReset">Reset view</button>
+    </div>
+  </div>
+  <p class="table-note">Illustrative 3D models based on BPPL product photos and sectional drawings. Not to scale. Ask us for dimensioned general-arrangement drawings.</p>
+  <div class="v3d-info" data-model="triplex">
+  <div><h2 class="h2">Triplex plunger pump</h2><p class="lead" style="margin-top:8px">High-pressure UT series. Crankcase power end with three plungers driving a stainless liquid end with suction and discharge headers.</p></div>
+  <dl class="v3d-specs"><div><dt>Max. pressure</dt><dd>700 kg/cm² (686 bar)</dd></div><div><dt>Flow</dt><dd>up to 1,907 l/min</dd></div><div><dt>Models</dt><dd>UT-2500 to UT-20000</dd></div></dl>
+  <div class="ctas"><a class="btn" href="contact.html?product=triplex">Get price</a><a class="link" href="triplex-plunger-pumps.html">Full specifications</a></div>
+</div><div class="v3d-info" data-model="metering" hidden>
+  <div><h2 class="h2">Metering / dosing pump</h2><p class="lead" style="margin-top:8px">Motor-driven worm gearbox with a 0–100% stroke-length knob, driving a plunger liquid head with suction and discharge ball valves.</p></div>
+  <dl class="v3d-specs"><div><dt>Flow</dt><dd>0.76 – 15,000 l/h</dd></div><div><dt>Accuracy</dt><dd>±1%</dd></div><div><dt>Models</dt><dd>BPPL 1125 to 5000</dd></div></dl>
+  <div class="ctas"><a class="btn" href="contact.html?product=metering">Get price</a><a class="link" href="metering-pumps.html">Full specifications</a></div>
+</div><div class="v3d-info" data-model="triplex-metering" hidden>
+  <div><h2 class="h2">Triplex metering pump</h2><p class="lead" style="margin-top:8px">Three dosing heads on one gearbox and one motor, each with its own stroke knob, so three chemicals or points are dosed independently.</p></div>
+  <dl class="v3d-specs"><div><dt>Heads</dt><dd>up to 3 per drive</dd></div><div><dt>Control</dt><dd>0–100% per head</dd></div><div><dt>Supply</dt><dd>pump or skid system</dd></div></dl>
+  <div class="ctas"><a class="btn" href="contact.html?product=triplex-metering">Get price</a><a class="link" href="triplex-metering-pump.html">Full specifications</a></div>
+</div><div class="v3d-info" data-model="test-pump" hidden>
+  <div><h2 class="h2">Hydraulic test pump</h2><p class="lead" style="margin-top:8px">UFF-30 motorised test pump: oil-bath pump body, belt drive from the motor, plunger head with relief valve and pressure gauge.</p></div>
+  <dl class="v3d-specs"><div><dt>Max. pressure</dt><dd>120 kg/cm² (118 bar)</dd></div><div><dt>Flow</dt><dd>150 – 560 l/h</dd></div><div><dt>Models</dt><dd>UFF-30/25, UFF-30/30</dd></div></dl>
+  <div class="ctas"><a class="btn" href="contact.html?product=test-pump">Get price</a><a class="link" href="hydraulic-test-pumps.html">Full specifications</a></div>
+</div>
+</div></section>
+<section class="tile dark pad center"><div class="wrap reveal">
+<h2 class="h1">Get a price for your duty.</h2>
+<p class="lead" style="margin:16px auto 0;max-width:620px">Share the liquid, flow, pressure and suction conditions. Our engineers will recommend the right model, plunger and materials.</p>
+<div class="ctas"><a class="btn" href="contact.html?product=other">Get a quote</a><a class="link" href="tel:+917922821584">Call 079-22821584</a><a class="link" href="BPPL-Product-Catalogue.pdf" download>Download catalogue</a></div>
+</div></section></main>
+<footer class="site"><div class="wrap-wide">
+<div class="cols">
+  <div><div class="logos"><img src="logo_bppl.png" alt="Bhagyoday Pumps Pvt. Ltd."><img src="logo_uday.png" alt="UDAY"></div>
+  <p>Since 1991. Manufacturers of UDAY high-pressure plunger pumps, metering pumps, dosing systems and hydraulic test pumps.</p></div>
+  <div><h4>Products</h4><ul><li><a href="triplex-plunger-pumps.html">Triplex / Quintuplex Plunger Pumps</a></li><li><a href="triplex-metering-pump.html">Triplex Metering Pump</a></li><li><a href="metering-pumps.html">Metering Pumps & Dosing Systems</a></li><li><a href="hydraulic-test-pumps.html">Motorised Hydraulic Test Pumps</a></li></ul></div>
+  <div><h4>Company</h4><ul><li><a href="index.html#about">About BPPL</a></li><li><a href="index.html#industries">Industries</a></li><li><a href="index.html#how">How to buy</a></li><li><a href="index.html#faq">FAQ</a></li><li><a href="index.html#selector">Pump selector</a></li><li><a href="3d-view.html">3D pump viewer</a></li>
+  <li><a href="BPPL-Product-Catalogue.pdf" download>Product catalogue (PDF)</a></li><li><a href="contact.html">Request a quote</a></li></ul></div>
+  <div><h4>Contact</h4><ul><li>Plot No. 400, Jai Bharat Ind. Compound, Opp. Vraj Vihar Society,<br>Naroda to Kathwada Road, Naroda, Ahmedabad – 382 330, Gujarat, India</li><li><a href="tel:+917922821584">079-22821584</a></li>
+  <li><a href="mailto:bhagyodaypumpspvtltd@gmail.com">bhagyodaypumpspvtltd@gmail.com</a></li></ul></div>
+</div>
+<div class="base"><span>Copyright © <span id="yr">2026</span> Bhagyoday Pumps Pvt. Ltd. All rights reserved. · CIN U29120GJ1991PTC015802</span><span>Specifications are subject to change without notice.</span></div>
+</div></footer>
+<div class="mbar" role="navigation" aria-label="Quick contact"><a href="tel:+917922821584">Call</a><a href="mailto:bhagyodaypumpspvtltd@gmail.com">Email</a><a class="btn" href="contact.html">Get a quote</a></div>
+<script>
+(function(){
+  var b=document.querySelector('.menu-btn'),m=document.getElementById('menu');
+  if(b){b.addEventListener('click',function(){var o=m.classList.toggle('open');b.setAttribute('aria-expanded',o)})}
+  var y=document.getElementById('yr'); if(y) y.textContent=new Date().getFullYear();
+  var els=document.querySelectorAll('.reveal');
+  if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{rootMargin:'0px 0px -8% 0px'});els.forEach(function(e){io.observe(e)})}
+  else els.forEach(function(e){e.classList.add('in')});
+  document.querySelectorAll('.seg').forEach(function(seg){
+    var tbl=document.getElementById(seg.dataset.for);
+    seg.addEventListener('click',function(ev){var btn=ev.target.closest('button');if(!btn)return;
+      seg.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===btn)});
+      var v=btn.dataset.model;tbl.querySelectorAll('tbody tr').forEach(function(r){r.hidden=!(v==='all'||r.dataset.model===v)})});
+  });
+})();
+</script><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import { createViewer, MODELS } from './pumps3d.js';
+const stage = document.getElementById('v3d');
+let viewer;
+try { viewer = createViewer(stage); } catch (e) {
+  document.getElementById('v3dLoading').textContent = 'Your browser could not start the 3D viewer. Please try Chrome, Safari or Edge.';
+  throw e;
+}
+document.getElementById('v3dLoading').remove();
+const tabs = [...document.querySelectorAll('.v3d-tabs button')];
+const tExplode = document.getElementById('tExplode'), tLabels = document.getElementById('tLabels'), tRotate = document.getElementById('tRotate');
+function show(key, push) {
+  if (!MODELS[key]) key = 'triplex';
+  tabs.forEach(b => b.setAttribute('aria-pressed', b.dataset.model === key));
+  document.querySelectorAll('.v3d-info').forEach(d => d.hidden = d.dataset.model !== key);
+  viewer.load(key);
+  viewer.setExploded(false); tExplode.setAttribute('aria-pressed', 'false');
+  if (push) history.replaceState(null, '', '#' + key);
+}
+tabs.forEach(b => b.addEventListener('click', () => show(b.dataset.model, true)));
+const toggle = (btn, fn) => btn.addEventListener('click', () => { const on = btn.getAttribute('aria-pressed') !== 'true'; btn.setAttribute('aria-pressed', on); fn(on); });
+toggle(tExplode, on => viewer.setExploded(on));
+toggle(tLabels, on => viewer.setLabels(on));
+toggle(tRotate, on => viewer.setAutoRotate(on));
+document.getElementById('tReset').addEventListener('click', () => viewer.reset());
+stage.addEventListener('v3d-interact', () => tRotate.setAttribute('aria-pressed', 'false'));
+window.addEventListener('hashchange', () => show(location.hash.slice(1)));
+show(location.hash.slice(1) || 'triplex');
+if (innerWidth < 600) { viewer.setLabels(false); tLabels.setAttribute('aria-pressed', 'false'); }
+if (new URLSearchParams(location.search).has('explode')) { viewer.setExploded(true); tExplode.setAttribute('aria-pressed', 'true'); }
+</script>
+</body></html>
