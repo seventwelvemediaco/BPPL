@@ -8,7 +8,7 @@
 <link rel="icon" href="logo_uday.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=202610012312">
 <script>document.documentElement.classList.add("js")</script>
 </head><body>
 <nav class="nav" aria-label="Main"><div class="in">
@@ -96,6 +96,10 @@
 (function(){
   var sel=document.getElementById('product'),q=new URLSearchParams(location.search).get('product');
   if(q&&sel.querySelector('option[value="'+q+'"]'))sel.value=q;
+  var ps=new URLSearchParams(location.search);
+  if(ps.get('flow'))document.getElementById('flow').value=ps.get('flow').replace(/ l\/h$/,'');
+  if(ps.get('press'))document.getElementById('press').value=ps.get('press');
+  if(ps.get('model'))document.getElementById('msg').value='Selected in the 3D simulator: '+ps.get('model');
   document.getElementById('enq').addEventListener('submit',function(e){
     e.preventDefault();
     var v=function(id){return document.getElementById(id).value.trim()};
