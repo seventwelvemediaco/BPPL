@@ -255,6 +255,7 @@ function conrod(L, rb, rs, w, mat = M.steelDark) {
   return group(cyl(rb, w, mat, 'x', 32), at(cyl(rb * 0.55, w * 1.05, M.bolt, 'x', 20), 0, 0, 0),
     at(box(w * 0.55, rb * 0.75, L - rb, mat, 0.006), 0, 0, L / 2), at(cyl(rs, w * 0.9, mat, 'x', 24), 0, 0, L));
 }
+const deriv = (f, a, h = 1e-3) => (f(a + h) - f(a - h)) / (2 * h);   // d(position)/d(crank angle), metres per radian
 // slider-crank: crank axis along x at (cy, cz), crank angle a, radius r, rod L, slide line at height ay pointing +z
 function sliderCrank(cy, cz, a, r, L, ay) {
   const py = cy + r * Math.cos(a), pz = cz + r * Math.sin(a);
@@ -345,7 +346,8 @@ function builder() {
 function triplexPlunger() {
   const { P, add } = builder();
   const G = paint(0x4d7a3a);
-  const ax = 0.3, cy = 0.3, cz = -0.33, R = 0.055, L = 0.3;   // plunger axis, crank axis, crank radius, rod length
+  const ax = 0.3, cy = 0.3, cz = -0.33, L = 0.3;   // plunger axis, crank axis, connecting-rod length (m)
+  let R = 0.0245;                                   // crank radius = stroke / 2 (UT-5000: 49 mm stroke from the BPPL chart)
   const xs = [-0.24, 0, 0.24];
 
   const base = new THREE.Group();
@@ -391,11 +393,19 @@ function triplexPlunger() {
   const crank = new THREE.Group(), spin = new THREE.Group(); crank.add(at(spin, 0, cy, cz));
   spin.add(cyl(0.038, 0.86, M.steel, 'x', 32));
   spin.add(at(cyl(0.042, 0.2, M.steel, 'x', 32), 0.53, 0, 0), at(box(0.12, 0.012, 0.016, M.steelDark, 0.002), 0.55, 0.042, 0));
-  xs.forEach((x, i) => {
-    const ph = i * Math.PI * 2 / 3, yy = R * Math.cos(ph), zz = R * Math.sin(ph);
-    spin.add(at(cyl(0.03, 0.08, M.steel, 'x', 28), x, yy, zz));
-    [-1, 1].forEach(s => { const web = box(0.022, 0.15, 0.085, M.steelDark, 0.01); web.position.set(x + s * 0.05, yy / 2, zz / 2); web.rotation.x = ph; spin.add(web); });
+  const throws = xs.map((x, i) => {
+    const pin = cyl(0.03, 0.08, M.steel, 'x', 28); spin.add(pin);
+    const webs = [-1, 1].map(s => { const w = box(0.022, 0.15, 0.085, M.steelDark, 0.01); spin.add(w); return { w, s }; });
+    return { x, ph: i * Math.PI * 2 / 3, pin, webs };
   });
+  function layCrank() {
+    throws.forEach(({ x, ph, pin, webs }) => {
+      const yy = R * Math.cos(ph), zz = R * Math.sin(ph);
+      pin.position.set(x, yy, zz);
+      webs.forEach(({ w, s }) => { w.position.set(x + s * 0.05, yy / 2, zz / 2); w.rotation.x = ph; });
+    });
+  }
+  layCrank();
   add(crank, 'Crank shaft', [0, 0, 0], false, null, { code: '506', internal: true });
   add(group(at(bearing(0.07, 0.04), -0.37, cy, cz), at(bearing(0.07, 0.04), 0.37, cy, cz)), 'Crank shaft bearings', [0, 0, 0], false, null, { code: '513', internal: true });
   const rods = new THREE.Group(), heads = new THREE.Group();
@@ -422,7 +432,8 @@ function triplexPlunger() {
 
   // plungers (535): ride on the crossheads
   const pl = new THREE.Group();
-  const plObjs = xs.map(x => { const g = group(at(cyl(0.032, 0.58, M.steel, 'z', 32), 0, 0, 0.29), at(cyl(0.045, 0.03, M.steelDark, 'z', 24), 0, 0, 0.0)); g.position.set(x, ax, 0); pl.add(g); return g; });
+  const plRods = [];
+  const plObjs = xs.map(x => { const rod = cyl(0.032, 0.58, M.steel, 'z', 32); plRods.push(rod); const g = group(at(rod, 0, 0, 0.29), at(cyl(0.045, 0.03, M.steelDark, 'z', 24), 0, 0, 0.0)); g.position.set(x, ax, 0); pl.add(g); return g; });
   add(pl, 'Plungers (×3)', [0, 0, 0.26], true, [0.36, 0.43, 0.3], { code: '535' });
   // gland (531), gland nut (532), packing (533), round collar (534)
   const gl = new THREE.Group();
@@ -496,12 +507,21 @@ function triplexPlunger() {
 
   const yS = ax - 0.143, yD = ax + 0.143;
   const flows = [];
+  // liquid passages: common suction/discharge mains carry the summed flow, branches carry each cylinder's flow
+  flows.push({ kind: 'suctionMain', r: 0.03, pts: [[-1.02, yS, 0.6], [0.3, yS, 0.6]] });
+  flows.push({ kind: 'dischargeMain', r: 0.026, pts: [[-0.3, yD, 0.6], [0.98, yD, 0.6]] });
   xs.forEach((x, i) => {
-    flows.push({ kind: 'suction', cyl: i, pts: [[-1.02, yS, 0.6], [x, yS, 0.6], [x, ax, 0.6]] });
-    flows.push({ kind: 'discharge', cyl: i, pts: [[x, ax, 0.6], [x, yD, 0.6], [0.98, yD, 0.6]] });
+    flows.push({ kind: 'suction', cyl: i, r: 0.022, pts: [[x, yS + 0.02, 0.6], [x, ax - 0.02, 0.6]] });
+    flows.push({ kind: 'chamber', cyl: i, r: 0.034, pts: [[x, ax, 0.52], [x, ax, 0.69]] });
+    flows.push({ kind: 'discharge', cyl: i, r: 0.02, pts: [[x, ax + 0.02, 0.6], [x, yD - 0.02, 0.6]] });
   });
-  flows.push({ kind: 'relief', pts: [[0.82, yD, 0.6], [0.82, yD + 0.12, 0.6], [0.95, yD + 0.12, 0.6], [0.95, 0.04, 0.6]] });
-  const velocity = a => xs.map((x, i) => Math.cos(a + i * Math.PI * 2 / 3));
+  flows.push({ kind: 'relief', r: 0.012, pts: [[0.82, yD, 0.6], [0.82, yD + 0.12, 0.6], [0.95, yD + 0.12, 0.6], [0.95, 0.04, 0.6]] });
+  const plungerPos = (a, i) => sliderCrank(cy, cz, a + i * Math.PI * 2 / 3, R, L, ax).sz;
+  const velocity = a => xs.map((x, i) => deriv(t => plungerPos(t, i), a));   // m/rad, + = towards the liquid end (discharge)
+  function setGeom({ stroke, d } = {}) {
+    if (stroke) { R = Math.min(0.09, Math.max(0.008, stroke / 2)); layCrank(); }
+    if (d) plRods.forEach(r => { const k = Math.min(0.05, d / 2) / 0.032; r.scale.set(k, 1, k); });
+  }
 
   function update(a) {
     spin.rotation.x = a; pulleySpin.rotation.x = a;
@@ -510,18 +530,19 @@ function triplexPlunger() {
       rodObjs[i].position.set(x, k.py, k.pz); rodObjs[i].rotation.x = k.beta;
       xhObjs[i].position.set(x, ax, k.sz + 0.03);
       plObjs[i].position.z = k.sz + 0.08;
-      const v = Math.cos(a + i * Math.PI * 2 / 3);  // plunger velocity sign: discharge when moving forward
+      const v = Math.sign(deriv(t => plungerPos(t, i), a));  // discharge stroke when the plunger moves forward
       valveObjs.filter(o => o.i === i).forEach(o => { o.v.position.y = o.base + 0.012 * Math.max(0, o.d > 0 ? v : -v); });
     });
   }
-  return { parts: P, update, velocity, flows, gauges: [dG], camera: [2.1, 1.3, 1.95], target: [0.0, 0.3, 0.1], speed: 2.2 };
+  return { parts: P, update, velocity, setGeom, cylinders: 3, flows, gauges: [dG], camera: [2.1, 1.3, 1.95], target: [0.0, 0.3, 0.1], rpm: 300, driveRatio: 1440 / 300 };
 }
 
 // BPPL metering pump: motor on pedestal, coupling, worm + worm wheel, polar crank, plunger liquid head with ball valves
 function meteringPump() {
   const { P, add } = builder();
   const G = paint(0x3f7f2f);
-  const ay = 0.27, wx = 0.1, wy = 0.32, Lr = 0.16, Emax = 0.035;  // plunger axis, worm-wheel centre, rod length, max eccentricity
+  const ay = 0.27, wx = 0.1, wy = 0.32, Lr = 0.16;   // plunger axis, worm-wheel centre, rod length (m)
+  let Emax = 0.02, wormRatio = 14.4;                  // max eccentricity = stroke/2 (BPPL 2250: 40 mm); worm ratio motor:crank
 
   const ped = group(box(0.56, 0.12, 0.28, G, 0.03), at(box(0.62, 0.025, 0.34, G, 0.01), 0, -0.05, 0));
   [-0.22, 0.22].forEach(x => [-0.13, 0.13].forEach(z => ped.add(at(hex(0.013, 0.016), x, 0.065, z))));
@@ -570,7 +591,7 @@ function meteringPump() {
   // crosshead nose with gland nut
   add(at(group(cyl(0.07, 0.07, G, 'x', 40), at(hex(0.055, 0.035, M.steel, 'x'), 0.05, 0, 0), at(cyl(0.045, 0.01, M.brass, 'x', 24), 0.07, 0, 0)), 0.31, ay, 0.02),
     'Crosshead nose & gland', [0.1, 0, 0]);
-  const plunger = group(cyl(0.016, 0.12, M.steel, 'x', 24));
+  const plRod = cyl(0.016, 0.12, M.steel, 'x', 24), plunger = group(plRod);
   add(group(plunger), 'Plunger', [0.2, 0, 0], false, null, { internal: true });
 
   // liquid head with ball check valves
@@ -598,14 +619,23 @@ function meteringPump() {
   const msuc = group(pipeRun([[0.41, ay - 0.225, 0.02], [0.41, 0.03, 0.02], [0.8, 0.03, 0.02]], 0.015), at(pipeFlange(0.03, 'x'), 0.81, 0.03, 0.02));
   add(msuc, 'Suction line', [0.3, -0.05, 0], false, null, { shell: true });
   const flows = [
-    { kind: 'suction', cyl: 0, pts: [[0.8, 0.03, 0.02], [0.41, 0.03, 0.02], [0.41, ay, 0.02]] },
-    { kind: 'discharge', cyl: 0, pts: [[0.41, ay, 0.02], [0.41, 0.62, 0.02], [0.78, 0.62, 0.02]] },
-    { kind: 'relief', pts: [[0.6, 0.62, 0.02], [0.6, 0.76, 0.02], [0.92, 0.76, 0.02]] }];
-  const velocity = a => [-Math.sin(a)];
+    { kind: 'suction', cyl: 0, r: 0.011, pts: [[0.8, 0.03, 0.02], [0.41, 0.03, 0.02], [0.41, ay - 0.03, 0.02]] },
+    { kind: 'chamber', cyl: 0, r: 0.022, pts: [[0.36, ay, 0.02], [0.46, ay, 0.02]] },
+    { kind: 'discharge', cyl: 0, r: 0.011, pts: [[0.41, ay + 0.03, 0.02], [0.41, 0.62, 0.02], [0.78, 0.62, 0.02]] },
+    { kind: 'relief', r: 0.008, pts: [[0.6, 0.62, 0.02], [0.6, 0.76, 0.02], [0.92, 0.76, 0.02]] }];
+  let strokeNow = 1;
+  const plungerPos = a => { const e = Emax * strokeNow, py = wy + e * Math.sin(a), px = wx + e * Math.cos(a), dy = ay - py; return px + Math.sqrt(Math.max(1e-6, Lr * Lr - dy * dy)); };
+  const velocity = a => [-deriv(plungerPos, a)];   // m/rad; plunger enters the head while the slider retracts here
+  function setGeom({ stroke, d, ratio } = {}) {
+    if (stroke) Emax = Math.min(0.045, Math.max(0.008, stroke / 2));
+    if (d) { const k = Math.min(0.032, d / 2) / 0.016; plRod.scale.set(k, 1, k); }
+    if (ratio) wormRatio = ratio;
+  }
 
   function update(a, stroke) {
+    strokeNow = stroke;
     const e = Emax * stroke;
-    wormSpin.rotation.x = a * 12;
+    wormSpin.rotation.x = a * wormRatio; cplSpin.rotation.x = a * wormRatio;
     wheelSpin.rotation.y = a; crankPlate.rotation.z = a;
     pin.position.set(e, 0, 0.02);
     const py = wy + e * Math.sin(a), px = wx + e * Math.cos(a);
@@ -614,10 +644,10 @@ function meteringPump() {
     xhead.position.set(sx + 0.03, ay, 0.04);
     plunger.position.set(sx + 0.11, ay, 0.02);
     dial.rotation.y = -stroke * Math.PI * 1.6;
-    const v = -Math.sin(a) * stroke;               // + when the plunger moves into the head (discharge)
+    const v = -deriv(plungerPos, a);               // + when the plunger moves into the head (discharge)
     bD.position.set(0, 0.095 + 0.012 * Math.max(0, v), 0); bS.position.set(0, -0.075 + 0.012 * Math.max(0, -v), 0);
   }
-  return { parts: P, update, velocity, flows, gauges: [mG], strokeAdjustable: true, speed: 1.6, camera: [1.05, 0.95, 1.5], target: [0.12, 0.33, 0],
+  return { parts: P, update, velocity, setGeom, cylinders: 1, flows, gauges: [mG], strokeAdjustable: true, rpm: 100, camera: [1.05, 0.95, 1.5], target: [0.12, 0.33, 0],
     extraLabels: [['Discharge valve', [0.41, 0.52, 0.02]], ['Suction valve', [0.41, 0.04, 0.02]]], extraOwner: 'Plunger liquid head' };
 }
 
@@ -625,7 +655,8 @@ function meteringPump() {
 function triplexMetering() {
   const { P, add } = builder();
   const G = paint(0x1f8a35);
-  const H = 0.36, ccz = -0.12, Lr = 0.24, Rmax = 0.035, xs = [-0.3, 0, 0.3];
+  const H = 0.36, ccz = -0.12, Lr = 0.24, xs = [-0.3, 0, 0.3];
+  let Rmax = 0.02, gearRatio = 14.4, strokeNow = 1;   // crank radius = stroke/2 (BPPL 2250: 40 mm)
 
   const gb = new THREE.Group();
   gb.add(at(box(1.0, 0.48, 0.56, G, 0.03), 0, 0.3, 0));
@@ -660,7 +691,8 @@ function triplexMetering() {
   const rods = new THREE.Group(), xhs = new THREE.Group(), pls = new THREE.Group();
   const rodObjs = xs.map(x => { const r = conrod(Lr, 0.035, 0.02, 0.035); r.position.x = x; rods.add(r); return r; });
   const xhObjs = xs.map(x => { const g = group(cyl(0.045, 0.09, M.steel, 'z', 28)); g.position.x = x; xhs.add(g); return g; });
-  const plObjs = xs.map(x => { const g = group(at(cyl(0.016, 0.3, M.steel, 'z', 24), 0, 0, 0.15)); g.position.set(x, H, 0); pls.add(g); return g; });
+  const tmRods = [];
+  const plObjs = xs.map(x => { const rod = cyl(0.016, 0.3, M.steel, 'z', 24); tmRods.push(rod); const g = group(at(rod, 0, 0, 0.15)); g.position.set(x, H, 0); pls.add(g); return g; });
   add(rods, 'Connecting rods (×3)', [0, 0, 0], false, null, { internal: true });
   add(xhs, 'Crossheads (×3)', [0, 0, 0], false, null, { internal: true });
   add(pls, 'Plungers (×3)', [0, 0, 0.34], false, null, { internal: true });
@@ -689,17 +721,27 @@ function triplexMetering() {
   add(at(dampener(0.85), 0.85, top_ + 0.07, 0.5), 'Pulsation dampener', [0, 0.34, 0.34], false, null, { accessory: 'dampener' });
   const tsuc = group(pipeRun([[-0.45, bot_ - 0.01, 0.5], [0.45, bot_ - 0.01, 0.5]], 0.024), at(pipeFlange(0.05, 'x'), -0.46, bot_ - 0.01, 0.5));
   add(tsuc, 'Suction manifold', [0, -0.03, 0.34], false, null, { shell: true });
-  const flows = [];
+  const flows = [
+    { kind: 'suctionMain', r: 0.018, pts: [[-0.45, bot_ - 0.01, 0.5], [0.45, bot_ - 0.01, 0.5]] },
+    { kind: 'dischargeMain', r: 0.017, pts: [[-0.42, top_ + 0.05, 0.5], [1.0, top_ + 0.05, 0.5]] }];
   xs.forEach((x, i) => {
-    flows.push({ kind: 'suction', cyl: i, pts: [[-0.45, bot_ - 0.01, 0.5], [x, bot_ - 0.01, 0.5], [x, H, 0.5]] });
-    flows.push({ kind: 'discharge', cyl: i, pts: [[x, H, 0.5], [x, top_ + 0.05, 0.5], [1.0, top_ + 0.05, 0.5]] });
+    flows.push({ kind: 'suction', cyl: i, r: 0.013, pts: [[x, bot_ + 0.01, 0.5], [x, H - 0.03, 0.5]] });
+    flows.push({ kind: 'chamber', cyl: i, r: 0.024, pts: [[x, H, 0.44], [x, H, 0.56]] });
+    flows.push({ kind: 'discharge', cyl: i, r: 0.013, pts: [[x, H + 0.03, 0.5], [x, top_ + 0.03, 0.5]] });
   });
-  flows.push({ kind: 'relief', pts: [[0.7, top_ + 0.05, 0.5], [0.7, top_ + 0.2, 0.5], [1.1, top_ + 0.2, 0.5]] });
-  const velocity = a => xs.map((x, i) => Math.cos(a + i * Math.PI * 2 / 3));
+  flows.push({ kind: 'relief', r: 0.009, pts: [[0.7, top_ + 0.05, 0.5], [0.7, top_ + 0.2, 0.5], [1.1, top_ + 0.2, 0.5]] });
+  const plungerPos = (a, i) => sliderCrank(H, ccz, a + i * Math.PI * 2 / 3, Math.max(0.0005, Rmax * strokeNow), Lr, H).sz;
+  const velocity = a => xs.map((x, i) => deriv(t => plungerPos(t, i), a));
+  function setGeom({ stroke, d, ratio } = {}) {
+    if (stroke) Rmax = Math.min(0.045, Math.max(0.008, stroke / 2));
+    if (d) tmRods.forEach(r => { const k = Math.min(0.03, d / 2) / 0.016; r.scale.set(k, 1, k); });
+    if (ratio) gearRatio = ratio;
+  }
 
   function update(a, stroke) {
+    strokeNow = stroke;
     const r = Math.max(0.0005, Rmax * stroke);
-    cspin.rotation.x = a; pinion.rotation.x = -a * (0.085 / 0.035);
+    cspin.rotation.x = a; pinion.rotation.x = -a * gearRatio;
     tommy.rotation.x = stroke * Math.PI;
     pins.forEach(({ p, x }, i) => { const ph = i * Math.PI * 2 / 3; p.position.set(x, r * Math.cos(ph), r * Math.sin(ph)); });
     webs.forEach(({ w, x, s }) => { const i = xs.indexOf(x), ph = i * Math.PI * 2 / 3; w.position.set(x + s * 0.04, r * Math.cos(ph) / 2, r * Math.sin(ph) / 2); w.rotation.x = ph; });
@@ -710,7 +752,7 @@ function triplexMetering() {
       plObjs[i].position.z = k.sz + 0.07;
     });
   }
-  return { parts: P, update, velocity, flows, gauges: [tG], strokeAdjustable: true, speed: 1.6, camera: [1.7, 1.15, 2.05], target: [0.2, 0.36, 0.15],
+  return { parts: P, update, velocity, setGeom, cylinders: 3, flows, gauges: [tG], strokeAdjustable: true, rpm: 100, camera: [1.7, 1.15, 2.05], target: [0.2, 0.36, 0.15],
     extraLabels: [['Discharge valve & port', [-0.3, 0.76, 0.5]], ['Suction valve & port', [-0.3, -0.06, 0.5]]], extraOwner: 'Liquid heads (×3)' };
 }
 
@@ -736,14 +778,18 @@ function testPump() {
   const pp = pulley(r1, 0.06, 2); pp.rotation.y = Math.PI / 2;
   const ppSpin = group(pp);
   add(at(ppSpin, px, py, pz), 'Pump pulley', [0, 0, -0.18], false, null, { internal: true });
-  const mp = pulley(r2, 0.06, 2); mp.rotation.y = Math.PI / 2;
+  const mp = pulley(r2, 0.06, 2); mp.rotation.y = Math.PI / 2;   // radius re-sized to the drive ratio in setGeom
   const mpSpin = group(mp);
   add(at(mpSpin, mx, my, pz), 'Motor pulley', [0, 0, -0.18], false, null, { internal: true });
-  const d = Math.hypot(mx - px, my - py), ang = Math.atan2(my - py, mx - px), th = Math.acos((r1 - r2) / d);
-  const bp = [];
-  for (let i = 0; i <= 40; i++) { const t = th + i / 40 * (2 * Math.PI - 2 * th); bp.push(new THREE.Vector3(Math.cos(t + ang) * r1, Math.sin(t + ang) * r1, 0)); }
-  for (let i = 0; i <= 20; i++) { const t = -th + i / 20 * 2 * th; bp.push(new THREE.Vector3(mx - px + Math.cos(t + ang) * r2, my - py + Math.sin(t + ang) * r2, 0)); }
-  const belt = shadowed(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(bp, true), 160, 0.012, 8, true), M.rubber));
+  // V-belt wrapped on both pulleys (open belt: arcs joined by the outer tangents)
+  function beltGeometry(rs) {
+    const d = Math.hypot(mx - px, my - py), ang = Math.atan2(my - py, mx - px), th = Math.acos((r1 - rs) / d), bp = [];
+    for (let i = 0; i <= 40; i++) { const t = th + i / 40 * (2 * Math.PI - 2 * th); bp.push(new THREE.Vector3(Math.cos(t + ang) * r1, Math.sin(t + ang) * r1, 0)); }
+    for (let i = 0; i <= 20; i++) { const t = -th + i / 20 * 2 * th; bp.push(new THREE.Vector3(mx - px + Math.cos(t + ang) * rs, my - py + Math.sin(t + ang) * rs, 0)); }
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(bp, true), 160, 0.012, 8, true);
+  }
+  let r2now = r2;
+  const belt = shadowed(new THREE.Mesh(beltGeometry(r2), M.rubber));
   add(at(group(belt), px, py, pz), 'V-belt', [0, 0, -0.18], false, null, { internal: true });
   const gm = shadowed(new THREE.Mesh(beltGuardGeometry(0.25, 0.1, Math.hypot(0.45, 0.1), 0.09), G));
   gm.rotation.z = Math.atan2(-0.1, 0.45);
@@ -779,21 +825,34 @@ function testPump() {
   line.add(shadowed(new THREE.Mesh(new THREE.TubeGeometry(hoseCurve, 40, 0.016, 12), M.rubber)));
   add(at(line, -0.39, 0.47, 0.02), 'Pressure gauge & relief valve', [0, 0.22, 0], true, [-0.16, 1.06, 0.06], { relief: true });
   const flows = [
-    { kind: 'suction', cyl: 0, pts: [[-0.59, 0.08, 0.02], [-0.39, 0.08, 0.02], [-0.39, py, 0.02]] },
-    { kind: 'discharge', cyl: 0, pts: [[-0.39, py, 0.02], [-0.39, 0.74, 0.02], [-0.39, 0.74, 0.19], [-0.39, 0.74, 0.32], [-0.34, 0.52, 0.44], [-0.14, 0.05, 0.52]] },
-    { kind: 'relief', pts: [[-0.39, 0.74, 0.02], [-0.25, 0.74, 0.02], [-0.25, 0.86, 0.02], [-0.18, 0.86, 0.02]] }];
-  const velocity = a => [Math.sin(a)];
+    { kind: 'suction', cyl: 0, r: 0.011, pts: [[-0.59, 0.08, 0.02], [-0.39, 0.08, 0.02], [-0.39, py - 0.03, 0.02]] },
+    { kind: 'chamber', cyl: 0, r: 0.02, pts: [[-0.44, py, 0.02], [-0.34, py, 0.02]] },
+    { kind: 'discharge', cyl: 0, r: 0.01, pts: [[-0.39, py + 0.03, 0.02], [-0.39, 0.74, 0.02], [-0.39, 0.74, 0.19], [-0.39, 0.74, 0.32], [-0.34, 0.52, 0.44], [-0.14, 0.05, 0.52]] },
+    { kind: 'relief', r: 0.008, pts: [[-0.39, 0.74, 0.02], [-0.25, 0.74, 0.02], [-0.25, 0.86, 0.02], [-0.18, 0.86, 0.02]] }];
+  let ecc = 0.0128;   // eccentric = stroke/2: UFF-30 displaces 12.5 cm³/rev with a 25 mm plunger → ≈ 25.5 mm stroke
+  const plungerPos = a => { const cx = px + ecc * Math.cos(-a), cyy = py + ecc * Math.sin(-a), dy = py - cyy; return cx - Math.sqrt(Math.max(1e-6, 0.11 * 0.11 - dy * dy)); };
+  const velocity = a => [-deriv(plungerPos, a)];  // + when the plunger moves (-x) into the head
+  function setGeom({ stroke, d, ratio } = {}) {
+    if (stroke) ecc = Math.min(0.03, Math.max(0.006, stroke / 2));
+    if (d) { const k = Math.min(0.022, d / 2) / 0.012; plunger.children[0].scale.set(k, 1, k); }
+    if (ratio) {   // motor pulley sized for the pump speed: r_motor = r_pump × N_pump / N_motor
+      r2now = Math.min(0.12, Math.max(0.03, r1 / ratio));
+      mp.scale.set(1, r2now / r2, r2now / r2);
+      belt.geometry.dispose(); belt.geometry = beltGeometry(r2now);
+    }
+  }
   add(at(group(cyl(0.015, 0.08, M.zinc), at(cyl(0.015, 0.2, M.zinc, 'x'), -0.1, -0.04, 0), at(hex(0.022, 0.025, M.zinc, '-x'), -0.2, -0.04, 0)), -0.39, 0.12, 0.02),
     'Suction connection', [-0.1, -0.06, 0]);
 
   function update(a) {
-    ppSpin.rotation.z = -a; mpSpin.rotation.z = -a * (r1 / r2); crankDisc.rotation.z = -a;
-    const e = 0.02, cx = px + e * Math.cos(-a), cyy = py + e * Math.sin(-a), L = 0.11;
+    ppSpin.rotation.z = -a; mpSpin.rotation.z = -a * (r1 / r2now); crankDisc.rotation.z = -a;
+    cpin.position.x = ecc;
+    const e = ecc, cx = px + e * Math.cos(-a), cyy = py + e * Math.sin(-a), L = 0.11;
     const dy = py - cyy, sx = cx - Math.sqrt(Math.max(1e-6, L * L - dy * dy));
     rodG.position.set(cx, cyy, 0.03); rodG.rotation.z = Math.atan2(-dy, cx - sx);
     xh.position.set(sx - 0.02, py, 0.02); plunger.position.set(sx - 0.13, py, 0.02);
   }
-  return { parts: P, update, velocity, flows, gauges: [hG], speed: 3.0, camera: [-1.2, 1.1, 1.8], target: [-0.05, 0.52, 0.05] };
+  return { parts: P, update, velocity, setGeom, cylinders: 1, flows, gauges: [hG], rpm: 400, camera: [-1.2, 1.1, 1.8], target: [-0.05, 0.52, 0.05] };
 }
 
 export const MODELS = {
@@ -855,53 +914,120 @@ export function createViewer(el, opts = {}) {
 
   let current = null, explodeT = 0, explodeTarget = 0, showLabels = true;
   let xray = false, running = opts.run !== false, stroke = 1, angle = 0.6, hovered = null, pinned = null;
-  // operating point set by the page: speed factor, stroke, discharge pressure, rated pressure, dampener, liquid display
-  const op = { rate: 1, pressure: 0, pmax: 100, damp: false, flow: true };
-  let fluid = [];   // [{ mesh, path, kind, cyl, t[] }]
-  const liquid = {
-    suction: new THREE.MeshStandardMaterial({ color: 0x6fb6ff, emissive: 0x1a5fb4, emissiveIntensity: 0.35, roughness: 0.15, metalness: 0.0, transparent: true, opacity: 0.82 }),
-    discharge: new THREE.MeshStandardMaterial({ color: 0x1e6fe0, emissive: 0x0a3d91, emissiveIntensity: 0.4, roughness: 0.15, metalness: 0.0, transparent: true, opacity: 0.82 }),
-    relief: new THREE.MeshStandardMaterial({ color: 0xff6a3d, emissive: 0xb02a00, emissiveIntensity: 0.5, roughness: 0.3 }),
-  };
-  const dropGeo = new THREE.SphereGeometry(0.0145, 12, 10);
-  function buildFluid(spec) {
-    fluid.forEach(f => scene.remove(f.mesh)); fluid = [];
-    (spec.flows || []).forEach(fl => {
-      const pts = fl.pts.map(p => new THREE.Vector3(...p)), segs = [];
-      let len = 0;
-      for (let i = 0; i < pts.length - 1; i++) { const l = pts[i].distanceTo(pts[i + 1]); segs.push({ a: pts[i], b: pts[i + 1], l, s: len }); len += l; }
-      const n = Math.max(8, Math.round(len / 0.017));
-      const mesh = new THREE.InstancedMesh(dropGeo, liquid[fl.kind], n);
-      mesh.frustumCulled = false;
-      scene.add(mesh);
-      fluid.push({ mesh, segs, len, kind: fl.kind, cyl: fl.cyl || 0, t: Array.from({ length: n }, (_, i) => i / n) });
-    });
-    placeFluid(0);
+  // operating point supplied by the page's engineering model
+  //  rpm: crank speed · timeScale: 1 real time, <1 slow motion · pressure: line pressure (kg/cm²) · pmax: rated pressure
+  //  bypass: fraction of flow through the relief valve · cav: cavitation severity 0..1 · area: plunger area (m²)
+  //  qMean: mean pumped flow (m³/s) · color: liquid colour · damp: pulsation dampener fitted · flow: show liquid · sound
+  const op = { rpm: 0, timeScale: 1, pressure: 0, pmax: 100, bypass: 0, cav: 0, area: 1.26e-3, qMean: 0, color: 0x2f7fe0, damp: false, flow: true };
+  let fluid = [], bubbles = null;
+  // liquid streak texture: faint density variations so moving liquid is visible inside the translucent passages
+  const streak = (() => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 32;
+    const g = c.getContext('2d'); g.fillStyle = '#d7e6f5'; g.fillRect(0, 0, 256, 32);
+    for (let i = 0; i < 28; i++) {
+      const x = Math.random() * 256, w = 6 + Math.random() * 26, y = Math.random() * 32;
+      const gr = g.createLinearGradient(x, 0, x + w, 0); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.95)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(x, y - 4, w, 8 + Math.random() * 8);
+    }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  function liquidMaterial(kind, len) {
+    const map = streak.clone(); map.needsUpdate = true; map.repeat.set(Math.max(1, len / 0.06), 1);
+    const relief = kind === 'relief';
+    return new THREE.MeshPhysicalMaterial({ color: relief ? 0xff8a50 : op.color, map, transparent: true, opacity: kind === 'chamber' ? 0.6 : 0.72,
+      roughness: 0.06, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.04, depthWrite: false,
+      emissive: relief ? 0x8a2a00 : op.color, emissiveIntensity: 0.16 });
   }
-  const _m = new THREE.Matrix4(), _p = new THREE.Vector3();
-  function placeFluid(dt, vel = []) {
-    const show = op.flow && xray && explodeT < 0.04 && !!current;   // liquid is seen through the X-ray casings
-    const relieving = op.pressure > op.pmax;
-    fluid.forEach(f => {
-      f.mesh.visible = show && (f.kind !== 'relief' || relieving);
-      if (!f.mesh.visible) return;
-      let v = 0;
-      const pv = vel[f.cyl] || 0;
-      if (f.kind === 'suction') v = Math.max(0, -pv); else if (f.kind === 'discharge') v = Math.max(0, pv);
-      else v = Math.min(1, (op.pressure - op.pmax) / (0.15 * op.pmax)) * 0.8;
-      const speed = running ? 0.55 * op.rate * (f.kind === 'relief' ? 1 : stroke) * v : 0;
-      f.t.forEach((t, i) => {
-        t = (t + speed * dt / f.len) % 1; f.t[i] = t;
-        const d = t * f.len, seg = f.segs.find(sg => d <= sg.s + sg.l) || f.segs[f.segs.length - 1];
-        _p.copy(seg.a).lerp(seg.b, (d - seg.s) / seg.l);
-        _m.makeTranslation(_p.x, _p.y, _p.z); f.mesh.setMatrixAt(i, _m);
-      });
-      f.mesh.instanceMatrix.needsUpdate = true;
+  function buildFluid(spec) {
+    fluid.forEach(f => { scene.remove(f.mesh); f.mesh.geometry.dispose(); f.mesh.material.map.dispose(); f.mesh.material.dispose(); }); fluid = [];
+    if (bubbles) { scene.remove(bubbles.mesh); bubbles = null; }
+    (spec.flows || []).forEach(fl => {
+      const path = new THREE.CurvePath();
+      for (let i = 0; i < fl.pts.length - 1; i++) path.add(new THREE.LineCurve3(new THREE.Vector3(...fl.pts[i]), new THREE.Vector3(...fl.pts[i + 1])));
+      const len = path.getLength(), r = fl.r || 0.015;
+      const mesh = new THREE.Mesh(new THREE.TubeGeometry(path, Math.max(8, Math.round(len / 0.01)), r, 18, false), liquidMaterial(fl.kind, len));
+      mesh.renderOrder = 2; scene.add(mesh);
+      fluid.push({ mesh, path, len, r, kind: fl.kind, cyl: fl.cyl || 0 });
     });
+    // cavitation vapour bubbles live in the suction branches and pumping chambers
+    const homes = fluid.filter(f => f.kind === 'suction' || f.kind === 'chamber');
+    if (homes.length) {
+      const n = 90, mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.1, transparent: true, opacity: 0.85 }), n);
+      mesh.renderOrder = 3; mesh.frustumCulled = false; scene.add(mesh);
+      bubbles = { mesh, homes, b: Array.from({ length: n }, () => ({ h: Math.floor(Math.random() * homes.length), t: Math.random(), life: Math.random(), off: new THREE.Vector3() })) };
+    }
+  }
+  const _m = new THREE.Matrix4(), _p = new THREE.Vector3(), _q = new THREE.Quaternion(), _s = new THREE.Vector3();
+  // vel[i]: plunger velocity in m/s (+ = discharge stroke). Liquid speed in a passage = flow / passage area.
+  function updateFluid(dt, vel) {
+    const show = op.flow && xray && explodeT < 0.04 && !!current;
+    const A = op.area, sumD = vel.reduce((s, v) => s + Math.max(0, v), 0), sumS = vel.reduce((s, v) => s + Math.max(0, -v), 0);
+    fluid.forEach(f => {
+      f.mesh.visible = show && (f.kind !== 'relief' || op.bypass > 0.001);
+      if (!f.mesh.visible) return;
+      const v = vel[f.cyl] || 0;
+      const q = { suction: Math.max(0, -v), discharge: Math.max(0, v), chamber: v, suctionMain: sumS, dischargeMain: sumD }[f.kind];
+      const flowQ = f.kind === 'relief' ? op.bypass * op.qMean : (q || 0) * A * (1 - (f.kind.startsWith('discharge') ? op.bypass : 0));
+      const speed = flowQ / (Math.PI * f.r * f.r);                     // m/s in the passage
+      const drift = (f.kind === 'chamber' ? speed : speed) * dt * op.timeScale;
+      f.mesh.material.map.offset.x -= drift / 0.06;
+    });
+    if (!bubbles) return;
+    const cav = show ? op.cav : 0;
+    bubbles.mesh.visible = cav > 0.01;
+    if (!bubbles.mesh.visible) return;
+    const suctionPhase = vel.some(v => v < 0) ? 1 : 0.3;
+    bubbles.b.forEach((b, i) => {
+      b.life += dt * op.timeScale * (2 + 4 * Math.random());
+      if (b.life > 1) { b.life = 0; b.h = Math.floor(Math.random() * bubbles.homes.length); b.t = Math.random(); b.off.set((Math.random() - 0.5), (Math.random() - 0.5), (Math.random() - 0.5)); }
+      const home = bubbles.homes[b.h];
+      home.path.getPointAt(b.t, _p); _p.addScaledVector(b.off, home.r * 1.2);
+      const sz = (i / bubbles.b.length < cav ? 1 : 0) * Math.min(home.r * 0.45, 0.0035 + 0.006 * Math.sin(Math.PI * b.life)) * suctionPhase;   // vapour bubbles grow, then collapse
+      _m.compose(_p, _q, _s.set(sz, sz, sz)); bubbles.mesh.setMatrixAt(i, _m);
+    });
+    bubbles.mesh.instanceMatrix.needsUpdate = true;
   }
   function setPartVisibility() {
     if (!current) return;
     current.parts.forEach(p => { if (p.accessory === 'dampener') p.obj.visible = !!op.damp; });
+  }
+
+  // ---- sound: motor hum, valve knock on every stroke, relief-valve hiss, cavitation crackle (Web Audio, off by default)
+  let audio = null, soundOn = false, lastSign = [];
+  function initAudio() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
+    const noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate), d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const hum = ctx.createOscillator(); hum.frequency.value = 100;           // magnetic hum at twice the 50 Hz supply
+    const humG = ctx.createGain(); humG.gain.value = 0; hum.connect(humG).connect(master); hum.start();
+    const rot = ctx.createOscillator(); rot.type = 'sawtooth'; rot.frequency.value = 24;   // 1440 rpm shaft
+    const rotF = ctx.createBiquadFilter(); rotF.type = 'lowpass'; rotF.frequency.value = 180;
+    const rotG = ctx.createGain(); rotG.gain.value = 0; rot.connect(rotF).connect(rotG).connect(master); rot.start();
+    const hissSrc = ctx.createBufferSource(); hissSrc.buffer = noiseBuf; hissSrc.loop = true;
+    const hissF = ctx.createBiquadFilter(); hissF.type = 'highpass'; hissF.frequency.value = 2200;
+    const hissG = ctx.createGain(); hissG.gain.value = 0; hissSrc.connect(hissF).connect(hissG).connect(master); hissSrc.start();
+    return { ctx, master, humG, rotG, hissG, noiseBuf };
+  }
+  function burst(freq, q, level, dur) {
+    if (!audio) return;
+    const { ctx, master, noiseBuf } = audio, t = ctx.currentTime;
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = freq; f.Q.value = q;
+    const g = ctx.createGain(); g.gain.setValueAtTime(level, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(master); src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.02);
+  }
+  function updateSound(dt, vel) {
+    if (!audio) return;
+    const t = audio.ctx.currentTime, on = soundOn && running;
+    audio.master.gain.setTargetAtTime(soundOn ? 0.55 : 0, t, 0.05);
+    audio.humG.gain.setTargetAtTime(on ? 0.035 : 0, t, 0.1);
+    audio.rotG.gain.setTargetAtTime(on ? 0.02 : 0, t, 0.1);
+    audio.hissG.gain.setTargetAtTime(on ? 0.12 * op.bypass : 0, t, 0.05);
+    if (!on || op.timeScale < 0.5) { lastSign = vel.map(v => Math.sign(v)); return; }   // knocks only at real speed
+    const load = Math.min(1.2, op.pressure / Math.max(1, op.pmax));
+    vel.forEach((v, i) => { const sg = Math.sign(v); if (lastSign[i] !== undefined && sg > 0 && lastSign[i] <= 0) burst(900 + 500 * load, 2.5, 0.08 + 0.22 * load, 0.07); lastSign[i] = sg; });
+    if (op.cav > 0.05 && Math.random() < op.cav * dt * 60) burst(3500 + Math.random() * 2500, 4, 0.12 * op.cav, 0.02);
   }
 
   function clear() {
@@ -1040,15 +1166,25 @@ export function createViewer(el, opts = {}) {
     if (current) {
       const e = ease(Math.min(1, Math.max(0, explodeT)));
       current.parts.forEach(p => p.obj.position.copy(p.base).addScaledVector(p.offset, e));
-      if (running && current.spec.update) { angle += dt * (current.spec.speed || 2) * op.rate; current.spec.update(angle, stroke); }
-      const vel = current.spec.velocity ? current.spec.velocity(angle) : [];
-      placeFluid(dt, vel);
-      // pressure seen by the gauge: set pressure plus delivery-flow pulsation (smoothed by the dampener), capped by the relief valve
-      const inst = vel.reduce((s, v) => s + Math.max(0, v), 0), mean = vel.length === 1 ? 1 / Math.PI : (vel.length ? vel.length / Math.PI : 1);
-      const ripple = running && stroke > 0.02 ? (inst / mean - 1) * (op.damp ? 0.025 : 0.12) : 0;
-      const pShown = Math.min(op.pressure, op.pmax * 1.1) * (1 + ripple);
-      (current.spec.gauges || []).forEach(g => g.set(pShown));
-      const relieving = op.pressure > op.pmax;
+      const rpm = op.rpm || current.spec.rpm || 100, omega = 2 * Math.PI * rpm / 60;   // crank speed, rad/s
+      if (running && current.spec.update) { angle += dt * op.timeScale * omega; current.spec.update(angle, stroke); }
+      const velRad = current.spec.velocity ? current.spec.velocity(angle) : [];
+      const vel = velRad.map(v => running ? v * omega : 0);                              // plunger velocity, m/s
+      updateFluid(dt, vel);
+      updateSound(dt, vel);
+      // line pressure seen by the gauge: delivery flow pulsates with plunger velocity, so pressure ripples with it;
+      // a gas-charged dampener absorbs ~90 % of the ripple; cavitation makes the needle flutter
+      const qi = vel.reduce((s, v) => s + Math.max(0, v), 0), vMax = Math.max(1e-9, ...velRad.map(Math.abs)) * omega;
+      const qMean = (current.spec.cylinders || 1) * vMax / Math.PI;                       // mean of half-wave rectified flow
+      const ripple = running && qMean > 0 ? (qi / qMean - 1) * (op.damp ? 0.006 : 0.06) : 0;
+      const flutter = op.cav > 0 ? (Math.random() - 0.5) * op.cav * 0.12 : 0;
+      const target = op.pressure * (1 + ripple + flutter);
+      (current.spec.gauges || []).forEach(g => {   // glycerine-filled gauge: second-order needle response
+        g.st = g.st || { x: 0, v: 0 };
+        for (let k = 0; k < 4; k++) { const h = dt / 4, w = 14, z = 0.65; g.st.v += (w * w * (target - g.st.x) - 2 * z * w * g.st.v) * h; g.st.x += g.st.v * h; }
+        g.set(g.st.x);
+      });
+      const relieving = op.bypass > 0.001;
       current.parts.forEach(p => { if (p.relief && hovered !== p && pinned !== p) p.meshes.forEach(m => {
         if (!m.material.emissive) return;
         m.material.emissive.setHex(relieving ? 0xd8232a : 0x000000);
@@ -1068,12 +1204,17 @@ export function createViewer(el, opts = {}) {
     setXray(on) { xray = on; applyXray(); },
     setRunning(on) { running = on; },
     setStroke(v) { stroke = Math.min(1, Math.max(0, v)); if (current && current.spec.update) current.spec.update(angle, stroke); },
-    // { rate, pressure, pmax, gaugeMax, damp, flow } — any subset
+    // { rpm, timeScale, pressure, pmax, bypass, cav, area, qMean, color, gaugeMax, damp, flow } — any subset
     setOperating(o) {
+      const colorChanged = o.color !== undefined && o.color !== op.color;
       Object.assign(op, o);
       if (o.gaugeMax && current) (current.spec.gauges || []).forEach(g => g.setMax(o.gaugeMax));
+      if (colorChanged) fluid.forEach(f => { if (f.kind !== 'relief') { f.mesh.material.color.setHex(op.color); f.mesh.material.emissive.setHex(op.color); } });
       setPartVisibility();
     },
+    // real geometry of the selected pump: { stroke (m), d plunger diameter (m), ratio motor:crank }
+    setGeom(g) { if (current && current.spec.setGeom) { current.spec.setGeom(g); current.spec.update && current.spec.update(angle, stroke); } },
+    setSound(on) { soundOn = on; if (on && !audio) audio = initAudio(); if (audio) audio.ctx.resume(); },
     highlight(i, pin = false) {
       const p = i == null ? null : current.parts[i];
       if (pin) pinned = p && p !== pinned ? p : null; else hovered = p;

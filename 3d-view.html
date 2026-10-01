@@ -8,7 +8,7 @@
 <link rel="icon" href="logo_uday.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=202610012312">
+<link rel="stylesheet" href="styles.css?v=202610020019">
 <script>document.documentElement.classList.add("js")</script>
 </head><body>
 <nav class="nav" aria-label="Main"><div class="in">
@@ -47,23 +47,34 @@
       <div class="sim-grid2">
         <div><label class="f" for="simModel">Model</label><select class="input" id="simModel"></select></div>
         <div><label class="f" for="simPlunger" id="simPlungerLbl">Plunger</label><select class="input" id="simPlunger"></select></div>
+        <div class="span2"><label class="f" for="simLiquid">Liquid</label><select class="input" id="simLiquid"></select></div>
       </div>
       <div class="sim-row"><label class="f" for="simSpeed">Speed <b id="simSpeedVal"></b></label><input type="range" id="simSpeed"></div>
       <div class="sim-row" id="simStrokeRow"><label class="f" for="simStroke">Stroke length <b id="simStrokeVal">100%</b></label><input type="range" id="simStroke" min="0" max="100" value="100"></div>
-      <div class="sim-row"><label class="f" for="simP">Discharge pressure <b id="simPVal"></b></label><input type="range" id="simP"></div>
+      <div class="sim-row"><label class="f" for="simP">System pressure demand <b id="simPVal"></b></label><input type="range" id="simP"></div>
+      <p class="sim-sub">Suction conditions</p>
+      <div class="sim-grid3">
+        <div><label class="f" for="simHs">Static head (m)</label><input class="input" id="simHs" type="number" step="0.1" value="2"></div>
+        <div><label class="f" for="simL">Pipe length (m)</label><input class="input" id="simL" type="number" step="0.5" min="0.2" value="3"></div>
+        <div><label class="f" for="simD">Pipe bore (mm)</label><input class="input" id="simD" type="number" step="1" min="6"></div>
+      </div>
+      <p class="small" style="margin-top:6px">Static head: + liquid level above the pump (flooded), − suction lift.</p>
       <div class="sim-checks">
-        <label><input type="checkbox" id="simFlow"> Show liquid flow (X-ray)</label>
+        <label><input type="checkbox" id="simFlow"> Show liquid (X-ray)</label>
         <label id="simDampRow"><input type="checkbox" id="simDamp"> Pulsation dampener</label>
+        <label><input type="checkbox" id="simReal"> Real-time speed</label>
+        <label><input type="checkbox" id="simSound"> Sound</label>
       </div>
     </div>
     <div class="sim-out" aria-live="polite">
       <div class="sim-kpi"><span class="k">Flow delivered</span><b id="oFlow"></b><span class="conv" id="oFlow2"></span></div>
-      <div class="sim-kpi"><span class="k">Discharge pressure</span><b id="oP"></b><span class="conv" id="oP2"></span></div>
-      <div class="sim-kpi"><span class="k">Power required (approx.)</span><b id="oPow"></b><span class="conv" id="oPow2"></span></div>
-      <div class="sim-kpi"><span class="k">Rated maximum</span><b id="oMax"></b><span class="conv" id="oMax2"></span></div>
-      <p class="sim-status" id="oStatus"></p>
-      <div class="ctas" style="margin-top:8px"><a class="btn" id="oQuote" href="contact.html">Get a quote for this duty</a></div>
-      <p class="table-note" id="oNote"></p>
+      <div class="sim-kpi"><span class="k">Line pressure</span><b id="oP"></b><span class="conv" id="oP2"></span></div>
+      <div class="sim-kpi"><span class="k">Shaft power</span><b id="oPow"></b><span class="conv" id="oPow2"></span></div>
+      <div class="sim-kpi"><span class="k">Motor (recommended)</span><b id="oMot"></b><span class="conv" id="oMot2"></span></div>
+      <ul class="sim-status" id="oStatus"></ul>
+      <dl class="sim-details" id="oDetails"></dl>
+      <div class="ctas" style="margin-top:4px"><a class="btn" id="oQuote" href="contact.html">Get a quote for this duty</a></div>
+      <details class="sim-method"><summary>Method &amp; assumptions</summary><div id="oMethod"></div></details>
     </div>
   </div>
   <p class="v3d-hint">Tip: hover over (or tap) any part to identify it. Switch on <b>X-ray</b> to see the crankshaft, connecting rods, plungers and valves working inside.</p>
@@ -126,7 +137,7 @@
 })();
 </script><script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 <script type="module">
-import { createViewer, MODELS, niceGaugeMax } from './pumps3d.js?v=202610012312';
+import { createViewer, MODELS, niceGaugeMax } from './pumps3d.js?v=202610020019';
 const stage = document.getElementById('v3d');
 let viewer;
 try { viewer = createViewer(stage); } catch (e) {
@@ -171,28 +182,69 @@ stage.addEventListener('v3d-select', e => {
   } else tip.hidden = true;
 });
 strokeIn.addEventListener('input', () => { $('strokeVal').textContent = strokeIn.value + '%'; viewer.setStroke(strokeIn.value / 100); });
-// ---------- operating simulator (BPPL capacity charts)
-const SIM = {"triplex": [{"model": "UT-2500", "plungers": [{"d": 10, "p": 700, "flows": [0.6, 0.89, 1.27, 1.9, 2.6]}, {"d": 15, "p": 340, "flows": [1.45, 2.15, 2.9, 4.3, 5.8]}, {"d": 20, "p": 105, "flows": [2.5, 3.75, 5.0, 7.5, 10.0]}, {"d": 25, "p": 125, "flows": [4.0, 6.0, 8.0, 12.0, 16.0]}, {"d": 30, "p": 100, "flows": [5.3, 8.0, 10.7, 16.15, 21.53]}]}, {"model": "UT-4000", "plungers": [{"d": 20, "p": 350, "flows": [3.5, 5.0, 7.0, 10.0, 13.0]}, {"d": 25, "p": 220, "flows": [5.0, 8.0, 10.0, 16.0, 21.0]}, {"d": 30, "p": 150, "flows": [7.5, 11.0, 15.0, 22.0, 30.0]}, {"d": 35, "p": 110, "flows": [10.5, 15.5, 21.0, 31.0, 42.0]}, {"d": 40, "p": 85, "flows": [13.5, 20.0, 27.0, 40.0, 54.0]}]}, {"model": "UT-5000", "plungers": [{"d": 25, "p": 440, "flows": [7.0, 11.0, 14.0, 22.0, 29.0]}, {"d": 30, "p": 300, "flows": [10.5, 15.5, 21.0, 31.0, 42.0]}, {"d": 40, "p": 170, "flows": [18.5, 27.5, 37.0, 55.0, 74.0]}, {"d": 50, "p": 100, "flows": [29.0, 43.5, 58.0, 87.0, 116.0]}, {"d": 55, "p": 90, "flows": [35.5, 53.0, 71.0, 106.0, 142.0]}]}, {"model": "UT-7000", "plungers": [{"d": 30, "p": 500, "flows": [13.0, 20.0, 26.0, 40.0, 53.0]}, {"d": 40, "p": 270, "flows": [23.5, 35.5, 47.0, 71.0, 95.0]}, {"d": 50, "p": 180, "flows": [37.0, 55.5, 74.0, 111.0, 148.0]}, {"d": 55, "p": 150, "flows": [45.0, 67.5, 90.0, 135.0, 180.0]}, {"d": 60, "p": 120, "flows": [53.0, 79.0, 106.0, 158.0, 212.0]}]}, {"model": "UT-10000", "plungers": [{"d": 50, "p": 300, "flows": [53.0, 79.0, 106.0, 158.0, 212.0]}, {"d": 60, "p": 235, "flows": [76.0, 114.0, 152.0, 228.0, 304.0]}, {"d": 65, "p": 198, "flows": [90.0, 135.0, 180.0, 270.0, 360.0]}, {"d": 70, "p": 170, "flows": [103.5, 155.0, 207.0, 310.0, 414.0]}, {"d": 75, "p": 150, "flows": [119.0, 178.5, 238.0, 357.0, 476.0]}, {"d": 80, "p": 132, "flows": [135.0, 202.5, 270.0, 405.0, 540.0]}]}, {"model": "UT-20000", "plungers": [{"d": 62, "p": 200, "flows": [162.0, 243.0, 325.0, null, null]}, {"d": 82, "p": 180, "flows": [316.5, 474.0, 633.0, null, null]}, {"d": 102, "p": 160, "flows": [440.0, 660.0, 880.0, null, null]}, {"d": 120, "p": 140, "flows": [610.0, 915.0, 1220.0, null, null]}, {"d": 140, "p": 120, "flows": [830.0, 1245.0, 1660.0, null, null]}, {"d": 150, "p": 100, "flows": [953.5, 1430.0, 1907.0, null, null]}]}], "metering": [{"model": "BPPL 1125", "plungers": [{"d": 3, "f100": 0.76, "f150": 1.13, "p": 400}, {"d": 5, "f100": 2.0, "f150": 3.0, "p": 400}, {"d": 8, "f100": 5.4, "f150": 8.0, "p": 238}, {"d": 12, "f100": 12.0, "f150": 18.0, "p": 106}, {"d": 20, "f100": 34.0, "f150": 51.0, "p": 37}, {"d": 30, "f100": 76.0, "f150": 114.0, "p": 16}, {"d": 40, "f100": 135.0, "f150": 203.0, "p": 9}, {"d": 50, "f100": 210.0, "f150": 315.0, "p": 8}, {"d": 55, "f100": 255.0, "f150": 380.0, "p": 5}, {"d": 60, "f100": 320.0, "f150": 480.0, "p": 4}]}, {"model": "BPPL 1750", "plungers": [{"d": 3, "f100": 0.95, "f150": 1.4, "p": 700}, {"d": 5, "f100": 2.6, "f150": 3.9, "p": 700}, {"d": 8, "f100": 6.75, "f150": 5.7, "p": 500}, {"d": 12, "f100": 15.0, "f150": 23.0, "p": 136}, {"d": 20, "f100": 42.0, "f150": 63.0, "p": 85}, {"d": 30, "f100": 95.0, "f150": 143.0, "p": 38}, {"d": 42, "f100": 186.0, "f150": 280.0, "p": 19}, {"d": 50, "f100": 265.0, "f150": 397.0, "p": 13}, {"d": 62, "f100": 430.0, "f150": 645.0, "p": 7}]}, {"model": "BPPL 2250", "plungers": [{"d": 10, "f100": 17.0, "f150": 25.0, "p": 400}, {"d": 12, "f100": 24.0, "f150": 36.0, "p": 276}, {"d": 20, "f100": 68.0, "f150": 101.0, "p": 101}, {"d": 30, "f100": 152.0, "f150": 228.0, "p": 44}, {"d": 40, "f100": 270.0, "f150": 406.0, "p": 25}, {"d": 50, "f100": 424.0, "f150": 635.0, "p": 16}, {"d": 56, "f100": 530.0, "f150": 796.0, "p": 12}, {"d": 60, "f100": 610.0, "f150": 914.0, "p": 11}, {"d": 70, "f100": 830.0, "f150": 1244.0, "p": 8}, {"d": 76, "f100": 980.0, "f150": 1466.0, "p": 6}]}, {"model": "BPPL 3000", "plungers": [{"d": 12, "f100": 30.0, "f150": 46.0, "p": 580}, {"d": 16, "f100": 54.0, "f150": 81.0, "p": 330}, {"d": 20, "f100": 85.0, "f150": 127.0, "p": 210}, {"d": 30, "f100": 133.0, "f150": 286.0, "p": 90}, {"d": 40, "f100": 340.0, "f150": 508.0, "p": 53}, {"d": 50, "f100": 530.0, "f150": 795.0, "p": 34}, {"d": 62, "f100": 815.0, "f150": 1222.0, "p": 22}, {"d": 75, "f100": 1192.0, "f150": 1788.0, "p": 15}, {"d": 80, "f100": 1356.0, "f150": 2034.0, "p": 13}, {"d": 90, "f100": 1716.0, "f150": 2575.0, "p": 10}, {"d": 100, "f100": 2119.0, "f150": 3180.0, "p": 8}]}, {"model": "BPPL 4000", "plungers": [{"d": 25, "f100": 165.0, "f150": 246.0, "p": 200}, {"d": 30, "f100": 236.0, "f150": 355.0, "p": 140}, {"d": 40, "f100": 420.0, "f150": 630.0, "p": 75}, {"d": 50, "f100": 657.0, "f150": 985.0, "p": 48}, {"d": 60, "f100": 946.0, "f150": 1419.0, "p": 34}, {"d": 70, "f100": 1288.0, "f150": 1931.0, "p": 25}, {"d": 80, "f100": 1682.0, "f150": 2523.0, "p": 18}, {"d": 90, "f100": 2128.0, "f150": 3193.0, "p": 15}, {"d": 100, "f100": 2628.0, "f150": 3942.0, "p": 12}, {"d": 120, "f100": 3784.0, "f150": 5676.0, "p": 8}]}, {"model": "BPPL 5000", "plungers": [{"d": 25, "f100": 198.0, "f150": 298.0, "p": 350}, {"d": 40, "f100": 508.0, "f150": 763.0, "p": 136}, {"d": 50, "f100": 795.0, "f150": 1192.0, "p": 85}, {"d": 70, "f100": 1558.0, "f150": 2336.0, "p": 45}, {"d": 85, "f100": 2297.0, "f150": 3445.0, "p": 34}, {"d": 100, "f100": 3179.0, "f150": 4768.0, "p": 20}, {"d": 125, "f100": 4967.0, "f150": 7451.0, "p": 13}, {"d": 150, "f100": 7153.0, "f150": 10729.0, "p": 9}, {"d": 177, "f100": 9736.0, "f150": 15000.0, "p": 7}]}], "uff": [{"model": "UFF-30/25", "rows": [{"lph": 150, "rpm": 200, "bhp": [0.31, 0.62, 0.935, 1.24]}, {"lph": 225, "rpm": 300, "bhp": [0.4, 0.8, 1.2, 1.6]}, {"lph": 300, "rpm": 400, "bhp": [0.508, 1.08, 1.52, 2.03]}, {"lph": 375, "rpm": 500, "bhp": [0.605, 1.21, 1.81, 2.42]}]}, {"model": "UFF-30/30", "rows": [{"lph": 252, "rpm": 200, "bhp": [0.38, 0.76, 1.14, 1.52]}, {"lph": 330, "rpm": 300, "bhp": [0.48, 0.96, 1.44, 1.92]}, {"lph": 450, "rpm": 400, "bhp": [0.62, 1.24, 1.86, 2.48]}, {"lph": 560, "rpm": 500, "bhp": [0.75, 1.5, 2.25, 3.0]}]}]};
+// ---------- operating simulator: engineering model built on BPPL capacity charts and manuals
+const SIM = {"triplex": [{"model": "UT-2500", "plungers": [{"d": 10, "p": 700, "flows": [0.6, 0.89, 1.27, 1.9, 2.6]}, {"d": 15, "p": 340, "flows": [1.45, 2.15, 2.9, 4.3, 5.8]}, {"d": 20, "p": 105, "flows": [2.5, 3.75, 5.0, 7.5, 10.0]}, {"d": 25, "p": 125, "flows": [4.0, 6.0, 8.0, 12.0, 16.0]}, {"d": 30, "p": 100, "flows": [5.3, 8.0, 10.7, 16.15, 21.53]}]}, {"model": "UT-4000", "plungers": [{"d": 20, "p": 350, "flows": [3.5, 5.0, 7.0, 10.0, 13.0]}, {"d": 25, "p": 220, "flows": [5.0, 8.0, 10.0, 16.0, 21.0]}, {"d": 30, "p": 150, "flows": [7.5, 11.0, 15.0, 22.0, 30.0]}, {"d": 35, "p": 110, "flows": [10.5, 15.5, 21.0, 31.0, 42.0]}, {"d": 40, "p": 85, "flows": [13.5, 20.0, 27.0, 40.0, 54.0]}]}, {"model": "UT-5000", "plungers": [{"d": 25, "p": 440, "flows": [7.0, 11.0, 14.0, 22.0, 29.0]}, {"d": 30, "p": 300, "flows": [10.5, 15.5, 21.0, 31.0, 42.0]}, {"d": 40, "p": 170, "flows": [18.5, 27.5, 37.0, 55.0, 74.0]}, {"d": 50, "p": 100, "flows": [29.0, 43.5, 58.0, 87.0, 116.0]}, {"d": 55, "p": 90, "flows": [35.5, 53.0, 71.0, 106.0, 142.0]}]}, {"model": "UT-7000", "plungers": [{"d": 30, "p": 500, "flows": [13.0, 20.0, 26.0, 40.0, 53.0]}, {"d": 40, "p": 270, "flows": [23.5, 35.5, 47.0, 71.0, 95.0]}, {"d": 50, "p": 180, "flows": [37.0, 55.5, 74.0, 111.0, 148.0]}, {"d": 55, "p": 150, "flows": [45.0, 67.5, 90.0, 135.0, 180.0]}, {"d": 60, "p": 120, "flows": [53.0, 79.0, 106.0, 158.0, 212.0]}]}, {"model": "UT-10000", "plungers": [{"d": 50, "p": 300, "flows": [53.0, 79.0, 106.0, 158.0, 212.0]}, {"d": 60, "p": 235, "flows": [76.0, 114.0, 152.0, 228.0, 304.0]}, {"d": 65, "p": 198, "flows": [90.0, 135.0, 180.0, 270.0, 360.0]}, {"d": 70, "p": 170, "flows": [103.5, 155.0, 207.0, 310.0, 414.0]}, {"d": 75, "p": 150, "flows": [119.0, 178.5, 238.0, 357.0, 476.0]}, {"d": 80, "p": 132, "flows": [135.0, 202.5, 270.0, 405.0, 540.0]}]}, {"model": "UT-20000", "plungers": [{"d": 62, "p": 200, "flows": [162.0, 243.0, 325.0, null, null]}, {"d": 82, "p": 180, "flows": [316.5, 474.0, 633.0, null, null]}, {"d": 102, "p": 160, "flows": [440.0, 660.0, 880.0, null, null]}, {"d": 120, "p": 140, "flows": [610.0, 915.0, 1220.0, null, null]}, {"d": 140, "p": 120, "flows": [830.0, 1245.0, 1660.0, null, null]}, {"d": 150, "p": 100, "flows": [953.5, 1430.0, 1907.0, null, null]}]}], "metering": [{"model": "BPPL 1125", "plungers": [{"d": 3, "f100": 0.76, "f150": 1.13, "p": 400, "conn": ""}, {"d": 5, "f100": 2.0, "f150": 3.0, "p": 400, "conn": ""}, {"d": 8, "f100": 5.4, "f150": 8.0, "p": 238, "conn": ""}, {"d": 12, "f100": 12.0, "f150": 18.0, "p": 106, "conn": "\u00bd\""}, {"d": 20, "f100": 34.0, "f150": 51.0, "p": 37, "conn": ""}, {"d": 30, "f100": 76.0, "f150": 114.0, "p": 16, "conn": ""}, {"d": 40, "f100": 135.0, "f150": 203.0, "p": 9, "conn": ""}, {"d": 50, "f100": 210.0, "f150": 315.0, "p": 8, "conn": ""}, {"d": 55, "f100": 255.0, "f150": 380.0, "p": 5, "conn": "\u00be\""}, {"d": 60, "f100": 320.0, "f150": 480.0, "p": 4, "conn": ""}]}, {"model": "BPPL 1750", "plungers": [{"d": 3, "f100": 0.95, "f150": 1.4, "p": 700, "conn": ""}, {"d": 5, "f100": 2.6, "f150": 3.9, "p": 700, "conn": ""}, {"d": 8, "f100": 6.75, "f150": 5.7, "p": 500, "conn": ""}, {"d": 12, "f100": 15.0, "f150": 23.0, "p": 136, "conn": "\u00bd\""}, {"d": 20, "f100": 42.0, "f150": 63.0, "p": 85, "conn": ""}, {"d": 30, "f100": 95.0, "f150": 143.0, "p": 38, "conn": ""}, {"d": 42, "f100": 186.0, "f150": 280.0, "p": 19, "conn": ""}, {"d": 50, "f100": 265.0, "f150": 397.0, "p": 13, "conn": "\u00be\""}, {"d": 62, "f100": 430.0, "f150": 645.0, "p": 7, "conn": ""}]}, {"model": "BPPL 2250", "plungers": [{"d": 10, "f100": 17.0, "f150": 25.0, "p": 400, "conn": ""}, {"d": 12, "f100": 24.0, "f150": 36.0, "p": 276, "conn": "\u00bd\""}, {"d": 20, "f100": 68.0, "f150": 101.0, "p": 101, "conn": ""}, {"d": 30, "f100": 152.0, "f150": 228.0, "p": 44, "conn": ""}, {"d": 40, "f100": 270.0, "f150": 406.0, "p": 25, "conn": "\u00be\""}, {"d": 50, "f100": 424.0, "f150": 635.0, "p": 16, "conn": ""}, {"d": 56, "f100": 530.0, "f150": 796.0, "p": 12, "conn": ""}, {"d": 60, "f100": 610.0, "f150": 914.0, "p": 11, "conn": "1\""}, {"d": 70, "f100": 830.0, "f150": 1244.0, "p": 8, "conn": ""}, {"d": 76, "f100": 980.0, "f150": 1466.0, "p": 6, "conn": "1\u00bd\""}]}, {"model": "BPPL 3000", "plungers": [{"d": 12, "f100": 30.0, "f150": 46.0, "p": 580, "conn": ""}, {"d": 16, "f100": 54.0, "f150": 81.0, "p": 330, "conn": "\u00bd\""}, {"d": 20, "f100": 85.0, "f150": 127.0, "p": 210, "conn": ""}, {"d": 30, "f100": 133.0, "f150": 286.0, "p": 90, "conn": ""}, {"d": 40, "f100": 340.0, "f150": 508.0, "p": 53, "conn": "\u00be\""}, {"d": 50, "f100": 530.0, "f150": 795.0, "p": 34, "conn": ""}, {"d": 62, "f100": 815.0, "f150": 1222.0, "p": 22, "conn": "1\""}, {"d": 75, "f100": 1192.0, "f150": 1788.0, "p": 15, "conn": ""}, {"d": 80, "f100": 1356.0, "f150": 2034.0, "p": 13, "conn": ""}, {"d": 90, "f100": 1716.0, "f150": 2575.0, "p": 10, "conn": "1\u00bd\""}, {"d": 100, "f100": 2119.0, "f150": 3180.0, "p": 8, "conn": ""}]}, {"model": "BPPL 4000", "plungers": [{"d": 25, "f100": 165.0, "f150": 246.0, "p": 200, "conn": ""}, {"d": 30, "f100": 236.0, "f150": 355.0, "p": 140, "conn": "\u00be\""}, {"d": 40, "f100": 420.0, "f150": 630.0, "p": 75, "conn": ""}, {"d": 50, "f100": 657.0, "f150": 985.0, "p": 48, "conn": "1\""}, {"d": 60, "f100": 946.0, "f150": 1419.0, "p": 34, "conn": ""}, {"d": 70, "f100": 1288.0, "f150": 1931.0, "p": 25, "conn": ""}, {"d": 80, "f100": 1682.0, "f150": 2523.0, "p": 18, "conn": "1\u00bd\""}, {"d": 90, "f100": 2128.0, "f150": 3193.0, "p": 15, "conn": ""}, {"d": 100, "f100": 2628.0, "f150": 3942.0, "p": 12, "conn": ""}, {"d": 120, "f100": 3784.0, "f150": 5676.0, "p": 8, "conn": "2\""}]}, {"model": "BPPL 5000", "plungers": [{"d": 25, "f100": 198.0, "f150": 298.0, "p": 350, "conn": ""}, {"d": 40, "f100": 508.0, "f150": 763.0, "p": 136, "conn": "1\""}, {"d": 50, "f100": 795.0, "f150": 1192.0, "p": 85, "conn": ""}, {"d": 70, "f100": 1558.0, "f150": 2336.0, "p": 45, "conn": "1\u00bd\""}, {"d": 85, "f100": 2297.0, "f150": 3445.0, "p": 34, "conn": ""}, {"d": 100, "f100": 3179.0, "f150": 4768.0, "p": 20, "conn": ""}, {"d": 125, "f100": 4967.0, "f150": 7451.0, "p": 13, "conn": "2\""}, {"d": 150, "f100": 7153.0, "f150": 10729.0, "p": 9, "conn": ""}, {"d": 177, "f100": 9736.0, "f150": 15000.0, "p": 7, "conn": "2\u00bd\""}]}], "uff": [{"model": "UFF-30/25", "rows": [{"lph": 150, "rpm": 200, "bhp": [0.31, 0.62, 0.935, 1.24]}, {"lph": 225, "rpm": 300, "bhp": [0.4, 0.8, 1.2, 1.6]}, {"lph": 300, "rpm": 400, "bhp": [0.508, 1.08, 1.52, 2.03]}, {"lph": 375, "rpm": 500, "bhp": [0.605, 1.21, 1.81, 2.42]}]}, {"model": "UFF-30/30", "rows": [{"lph": 252, "rpm": 200, "bhp": [0.38, 0.76, 1.14, 1.52]}, {"lph": 330, "rpm": 300, "bhp": [0.48, 0.96, 1.44, 1.92]}, {"lph": 450, "rpm": 400, "bhp": [0.62, 1.24, 1.86, 2.48]}, {"lph": 560, "rpm": 500, "bhp": [0.75, 1.5, 2.25, 3.0]}]}]};
 const fmt = (n, d = 0) => Number(n).toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d });
 const simEl = id => document.getElementById(id);
+const KGCM2 = 98066.5, GRAV = 9.80665;
+// typical liquid properties at ~25 °C: specific gravity, bulk modulus (Pa), vapour pressure (bar abs), HI acceleration-head factor K
+const LIQ = {
+  water:    { name: 'Water', sg: 1.0,   K: 2.2e9,  pv: 0.032, hiK: 1.4, color: 0x2f7fe0 },
+  sea:      { name: 'Sea water', sg: 1.025, K: 2.34e9, pv: 0.031, hiK: 1.4, color: 0x1f8fae },
+  diesel:   { name: 'Diesel / light oil', sg: 0.84, K: 1.5e9, pv: 0.003, hiK: 2.0, color: 0xd9a21b },
+  methanol: { name: 'Methanol', sg: 0.79, K: 0.82e9, pv: 0.169, hiK: 2.0, color: 0x8fb8e8 },
+};
+simEl('simLiquid').innerHTML = Object.entries(LIQ).map(([k, l]) => `<option value="${k}">${l.name} (SG ${l.sg})</option>`).join('');
+const IEC = [0.18, 0.25, 0.37, 0.55, 0.75, 1.1, 1.5, 2.2, 3.0, 3.7, 5.5, 7.5, 9.3, 11, 15, 18.5, 22, 30, 37, 45, 55, 75, 90, 110, 132, 160, 200];
+const median = a => { const b = [...a].sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
+const areaM2 = dmm => Math.PI * (dmm / 1000) ** 2 / 4, areaCm2 = dmm => Math.PI * (dmm / 10) ** 2 / 4;
+const BSP = { '½"': 15, '¾"': 20, '1"': 25, '1½"': 40, '2"': 50, '2½"': 65 };
+const TRI_PIPE = { 'UT-2500': 25, 'UT-4000': 40, 'UT-5000': 50, 'UT-7000': 65, 'UT-10000': 80, 'UT-20000': 150 };
+// frame properties derived from the charts: swept stroke and rod-load rating (max pressure × plunger area)
+SIM.triplex.forEach(m => {
+  m.stroke = median(m.plungers.map(p => p.flows[0] / 1000 / (3 * areaM2(p.d) * 100)));           // chart flow at 100 RPM
+  m.rodRating = median(m.plungers.map(p => p.p * areaCm2(p.d)));                                    // kgf
+});
+SIM.metering.forEach(m => {
+  m.stroke = median(m.plungers.map(p => p.f100 / 1000 / 60 / (areaM2(p.d) * 100 * 0.9)));          // chart basis 90 % vol. eff.
+  m.rodRating = median(m.plungers.map(p => p.p * areaCm2(p.d)));
+  let last = null; m.plungers.forEach(p => { if (p.conn) last = p.conn; p.pipe = BSP[p.conn || last] || null; });
+  let next = null; [...m.plungers].reverse().forEach(p => { if (p.conn) next = p.conn; if (!p.pipe) p.pipe = BSP[next] || 15; });
+});
+SIM.uff.forEach(m => {
+  m.d = /\/30/.test(m.model) ? 30 : 25;
+  m.disp = median(m.rows.map(r => r.lph / 1000 / 60 / r.rpm));                                       // m³ per revolution
+  m.stroke = m.disp / areaM2(m.d);
+});
+// discharge-flow pulsation of n plungers at 120° (connecting-rod ratio λ = r/L = 0.2): (max − min) / mean
+function pulsation(n, lam = 0.2) {
+  let mx = 0, mn = 1e9, sum = 0, N = 720;
+  for (let k = 0; k < N; k++) {
+    const t = k / N * 2 * Math.PI; let q = 0;
+    for (let i = 0; i < n; i++) { const a = t + i * 2 * Math.PI / n; q += Math.max(0, Math.sin(a) + lam / 2 * Math.sin(2 * a)); }
+    mx = Math.max(mx, q); mn = Math.min(mn, q); sum += q;
+  }
+  return (mx - mn) / (sum / N);
+}
+const PULSE = { 1: pulsation(1), 3: pulsation(3) };
 let simKey = 'triplex';
+const fam = key => key === 'triplex' ? SIM.triplex : key === 'test-pump' ? SIM.uff : SIM.metering;
 function simOptions(key) {
-  const mSel = simEl('simModel'), pSel = simEl('simPlunger');
-  const fam = key === 'triplex' ? SIM.triplex : key === 'test-pump' ? SIM.uff : SIM.metering;
-  mSel.innerHTML = fam.map((m, i) => `<option value="${i}">${m.model}</option>`).join('');
-  const def = { triplex: 2, metering: 2, 'triplex-metering': 2, 'test-pump': 0 }[key] || 0;
-  mSel.value = Math.min(def, fam.length - 1);
+  const mSel = simEl('simModel');
+  mSel.innerHTML = fam(key).map((m, i) => `<option value="${i}">${m.model}</option>`).join('');
+  mSel.value = Math.min({ triplex: 2, metering: 2, 'triplex-metering': 2, 'test-pump': 0 }[key] || 0, fam(key).length - 1);
   simEl('simStrokeRow').hidden = !(key === 'metering' || key === 'triplex-metering');
   simEl('simDampRow').hidden = key === 'test-pump';
   simEl('simPlungerLbl').parentElement.hidden = key === 'test-pump';
+  // typical installations: triplex on a flooded suction, metering from a day tank, test pump from its own tank
+  simEl('simHs').value = { triplex: 2, metering: 0.5, 'triplex-metering': 0.5, 'test-pump': 0.3 }[key];
+  simEl('simL').value = { triplex: 3, metering: 2, 'triplex-metering': 2, 'test-pump': 0.5 }[key];
   fillPlungers(key, true);
 }
 function fillPlungers(key, resetP) {
-  const mi = +simEl('simModel').value, pSel = simEl('simPlunger'), sp = simEl('simSpeed');
-  if (key === 'test-pump') {
-    sp.min = 200; sp.max = 500; sp.step = 10; sp.value = 400;
-  } else {
-    const m = (key === 'triplex' ? SIM.triplex : SIM.metering)[mi];
+  const m = fam(key)[+simEl('simModel').value], pSel = simEl('simPlunger'), sp = simEl('simSpeed');
+  if (key === 'test-pump') { sp.min = 200; sp.max = 500; sp.step = 10; sp.value = 400; simEl('simD').value = 20; }
+  else {
     pSel.innerHTML = m.plungers.map((p, i) => `<option value="${i}">${p.d} mm  ·  up to ${fmt(p.p)} kg/cm²</option>`).join('');
     pSel.value = Math.floor(m.plungers.length / 2);
     if (key === 'triplex') { const top = m.plungers[0].flows[4] == null ? 200 : 400; sp.min = 100; sp.max = top; sp.step = 5; sp.value = Math.min(300, top); }
@@ -200,15 +252,14 @@ function fillPlungers(key, resetP) {
   }
   setPressureRange(key, resetP);
 }
-function ratedP(key) {
-  if (key === 'test-pump') return 120;
-  const m = (key === 'triplex' ? SIM.triplex : SIM.metering)[+simEl('simModel').value];
-  return m.plungers[+simEl('simPlunger').value].p;
-}
+const plungerOf = key => key === 'test-pump' ? null : fam(key)[+simEl('simModel').value].plungers[+simEl('simPlunger').value];
+function ratedP(key) { return key === 'test-pump' ? 120 : plungerOf(key).p; }
 function setPressureRange(key, reset) {
   const pm = ratedP(key), sl = simEl('simP');
-  sl.min = 0; sl.max = Math.round(pm * 1.15); sl.step = pm > 100 ? 1 : 0.5;
+  sl.min = 0; sl.max = Math.round(pm * 1.3); sl.step = pm > 100 ? 1 : 0.5;
   if (reset || +sl.value > +sl.max) sl.value = Math.round(pm * 0.7);
+  if (key === 'triplex') simEl('simD').value = TRI_PIPE[fam(key)[+simEl('simModel').value].model] || 50;
+  else if (key !== 'test-pump') simEl('simD').value = plungerOf(key).pipe;
   simUpdate();
 }
 const lerpTable = (xs, ys, x) => {
@@ -218,55 +269,103 @@ const lerpTable = (xs, ys, x) => {
   return pts[pts.length - 1][1];
 };
 function simUpdate() {
-  const key = simKey, speed = +simEl('simSpeed').value, P = +simEl('simP').value, stroke = +simEl('simStroke').value / 100;
-  const pm = ratedP(key), damp = simEl('simDamp').checked && key !== 'test-pump';
-  let qLph = 0, kw = 0, unitSpeed = 'RPM', heads = 1, label = '', modelName = simEl('simModel').selectedOptions[0].text, plg = '';
-  if (key === 'triplex') {
-    const m = SIM.triplex[+simEl('simModel').value], pl = m.plungers[+simEl('simPlunger').value];
-    qLph = lerpTable([100, 150, 200, 300, 400], pl.flows, speed) * 60; plg = pl.d + ' mm';
-  } else if (key === 'test-pump') {
-    const m = SIM.uff[+simEl('simModel').value];
-    qLph = lerpTable(m.rows.map(r => r.rpm), m.rows.map(r => r.lph), speed);
+  const key = simKey, m = fam(key)[+simEl('simModel').value], pl = plungerOf(key);
+  const N = +simEl('simSpeed').value, demand = +simEl('simP').value, strokePct = +simEl('simStroke').value / 100;
+  const liq = LIQ[simEl('simLiquid').value], damp = simEl('simDamp').checked && key !== 'test-pump';
+  const Hs = +simEl('simHs').value, Lp = Math.max(0.2, +simEl('simL').value), dp = Math.max(6, +simEl('simD').value);
+  const metering = key === 'metering' || key === 'triplex-metering';
+  const n = key === 'triplex' || key === 'triplex-metering' ? 3 : 1;
+  const d = key === 'test-pump' ? m.d : pl.d, A = areaM2(d), s = m.stroke * (metering ? strokePct : 1);
+  const Prated = ratedP(key), Pset = Prated;
+  // relief valve: set at the rated pressure (protects the frame); full bypass at +10 % accumulation
+  const bypass = demand > Pset ? Math.min(1, (demand - Pset) / (0.1 * Pset)) : 0;
+  const P = demand > Pset ? Pset * (1 + 0.1 * bypass) : demand;
+  // theoretical displacement and volumetric efficiency (slip + liquid compression in the clearance volume)
+  const Qth = n * A * s * N / 60;                                                   // m³/s
+  const eta0 = { triplex: 0.97, metering: 0.93, 'triplex-metering': 0.93, 'test-pump': 0.97 }[key];
+  const C = metering ? 2.5 : 2.0;
+  const etaV = Math.max(0.3, eta0 - (P * KGCM2 / liq.K) * (1 + C));
+  const Qp = Qth * etaV, Qd = Qp * (1 - bypass);
+  const lph = Qd * 3.6e6;
+  // power: hydraulic = Q·Δp; shaft = hydraulic / mechanical efficiency (UFF-30: from the BPPL BHP chart)
+  const Phyd = Qp * P * KGCM2 / 1000;                                               // kW
+  let Pshaft;
+  if (key === 'test-pump') {
     const bhpAt = r => lerpTable([30, 60, 90, 120], r.bhp, Math.max(P, 0.01));
-    const lo = m.rows.reduce((a, r) => r.rpm <= speed ? r : a, m.rows[0]), hi = m.rows.find(r => r.rpm >= speed) || m.rows[m.rows.length - 1];
-    const bhp = lo === hi ? bhpAt(lo) : bhpAt(lo) + (bhpAt(hi) - bhpAt(lo)) * (speed - lo.rpm) / (hi.rpm - lo.rpm);
-    kw = bhp * 0.7457;
-  } else {
-    const m = SIM.metering[+simEl('simModel').value], pl = m.plungers[+simEl('simPlunger').value];
-    heads = key === 'triplex-metering' ? 3 : 1; unitSpeed = 'SPM'; plg = pl.d + ' mm';
-    const per = speed <= 100 ? pl.f100 * speed / 100 : pl.f100 + (pl.f150 - pl.f100) * (speed - 100) / 50;
-    qLph = per * stroke * heads;
-  }
-  const relieving = P > pm, bypass = relieving ? Math.min(1, (P - pm) / (0.15 * pm)) : 0;
-  const qDel = qLph * (1 - bypass), bar = P * 0.980665;
-  if (key !== 'test-pump') kw = (qLph / 60) * Math.min(P, pm * 1.1) * 0.980665 / (600 * 0.85);
-  simEl('simSpeedVal').textContent = fmt(speed) + ' ' + unitSpeed;
-  simEl('simStrokeVal').textContent = Math.round(stroke * 100) + '%';
-  simEl('simPVal').textContent = fmt(P, P < 100 ? 1 : 0) + ' kg/cm²';
-  simEl('oFlow').textContent = qDel >= 600 ? fmt(qDel / 60, 1) + ' l/min' : fmt(qDel, qDel < 10 ? 2 : 1) + ' l/h';
-  simEl('oFlow2').textContent = `${fmt(qDel, 1)} l/h · ${fmt(qDel / 1000, 3)} m³/h · ${fmt(qDel / 227.12, 2)} US GPM` + (heads > 1 ? ` · ${fmt(qDel / 3, 1)} l/h per head` : '');
+    const lo = m.rows.reduce((a, r) => r.rpm <= N ? r : a, m.rows[0]), hi = m.rows.find(r => r.rpm >= N) || m.rows[m.rows.length - 1];
+    Pshaft = (lo === hi ? bhpAt(lo) : bhpAt(lo) + (bhpAt(hi) - bhpAt(lo)) * (N - lo.rpm) / (hi.rpm - lo.rpm)) * 0.7457;
+  } else Pshaft = Phyd / ({ triplex: 0.9, metering: 0.5, 'triplex-metering': 0.8 }[key]);
+  const motor = IEC.find(k => k >= Math.max(0.15, Pshaft * 1.15)) || IEC[IEC.length - 1];
+  // plunger rod load against the frame rating derived from the chart
+  const rodKgf = P * areaCm2(d), rodPct = key === 'test-pump' ? null : 100 * rodKgf / m.rodRating;
+  const vPl = 2 * s * N / 60;
+  // suction: NPSH available (BPPL manual: 10.2·(pa − pv)/SG + Ha, less pipe friction) vs required (acceleration head + valve loss)
+  const dpm = dp / 1000, vPipe = Qth / (Math.PI * dpm * dpm / 4), hf = 0.025 * (Lp / dpm) * vPipe * vPipe / (2 * GRAV);
+  const NPSHa = 10.2 * (1.01325 - liq.pv) / liq.sg + Hs - hf;
+  const hAcc = key === 'metering'
+    ? Lp * s * N * N * (d / dp) ** 2 / 1330                                        // BPPL metering-pump manual formula
+    : Lp * vPipe * N * (n === 3 ? 0.066 : 0.4) / (liq.hiK * GRAV);                 // Hydraulic Institute acceleration head
+  const NPSHr = hAcc + 1.0;
+  const cav = NPSHa < NPSHr ? Math.min(1, (NPSHr - NPSHa) / Math.max(1, NPSHr)) : 0;
+  const puls = PULSE[n] * (damp ? 0.1 : 1);
+  // chart cross-check at this speed
+  let chart = null;
+  if (key === 'triplex') chart = lerpTable([100, 150, 200, 300, 400], pl.flows, N) * 60;
+  else if (metering) chart = (N <= 100 ? pl.f100 * N / 100 : pl.f100 + (pl.f150 - pl.f100) * (N - 100) / 50) * strokePct * n;
+  else chart = lerpTable(m.rows.map(r => r.rpm), m.rows.map(r => r.lph), N);
+
+  // ---- outputs
+  const unit = key === 'test-pump' || key === 'triplex' ? 'RPM' : 'SPM';
+  simEl('simSpeedVal').textContent = fmt(N) + ' ' + unit;
+  simEl('simStrokeVal').textContent = Math.round(strokePct * 100) + '%';
+  simEl('simPVal').textContent = fmt(demand, demand < 100 ? 1 : 0) + ' kg/cm²';
+  simEl('oFlow').textContent = lph >= 600 ? fmt(lph / 60, 1) + ' l/min' : fmt(lph, lph < 10 ? 2 : 1) + ' l/h';
+  simEl('oFlow2').textContent = `${fmt(lph, 1)} l/h · ${fmt(lph / 1000, 3)} m³/h · ${fmt(lph / 227.12, 2)} US GPM` + (n === 3 && metering ? ` · ${fmt(lph / 3, 1)} l/h per head` : '');
   simEl('oP').textContent = fmt(P, P < 100 ? 1 : 0) + ' kg/cm²';
-  simEl('oP2').textContent = `${fmt(bar, 1)} bar · ${fmt(P * 14.2233, 0)} psi`;
-  simEl('oPow').textContent = fmt(kw, kw < 1 ? 2 : 1) + ' kW';
-  simEl('oPow2').textContent = `${fmt(kw / 0.7457, kw < 1 ? 2 : 1)} HP` + (key === 'test-pump' ? ' (BPPL BHP chart)' : ' hydraulic, at 85% efficiency');
-  simEl('oMax').textContent = fmt(pm) + ' kg/cm²';
-  simEl('oMax2').textContent = `${fmt(pm * 0.980665, 0)} bar · ${modelName}${plg ? ' · ' + plg + ' plunger' : ''}`;
-  const st = simEl('oStatus');
-  st.className = 'sim-status ' + (relieving ? 'warn' : 'ok');
-  st.textContent = relieving ? 'Above the rated pressure: the relief valve lifts and bypasses flow back to tank.'
-    : P > pm * 0.9 ? 'Close to the rated maximum. Within rating.' : 'Within rating.';
-  simEl('oNote').textContent = key === 'test-pump' ? 'Flow and power from the UFF-30 performance chart.'
-    : 'Flow from the BPPL capacity chart' + (key === 'triplex' ? '' : ' (90% volumetric efficiency)') + '. Actual figures depend on liquid, suction conditions and temperature.';
-  const prod = key === 'triplex' ? 'triplex' : key;
-  simEl('oQuote').href = `contact.html?product=${prod}&model=${encodeURIComponent(modelName + (plg ? ' / ' + plg + ' plunger' : ''))}&flow=${encodeURIComponent(fmt(qLph, 1) + ' l/h')}&press=${encodeURIComponent(fmt(P, 1))}`;
-  const rate = key === 'triplex' ? speed / 220 : key === 'test-pump' ? speed / 350 : speed / 100;
-  viewer.setStroke(key === 'metering' || key === 'triplex-metering' ? stroke : 1);
-  viewer.setOperating({ rate, pressure: P, pmax: pm, gaugeMax: niceGaugeMax(pm), damp, flow: simEl('simFlow').checked });
+  simEl('oP2').textContent = `${fmt(P * 0.980665, 1)} bar · ${fmt(P * 14.2233, 0)} psi · rated ${fmt(Prated)} kg/cm²`;
+  simEl('oPow').textContent = fmt(Pshaft, Pshaft < 1 ? 2 : 1) + ' kW';
+  simEl('oPow2').textContent = `${fmt(Pshaft / 0.7457, Pshaft < 1 ? 2 : 1)} HP · hydraulic ${fmt(Phyd, Phyd < 1 ? 2 : 1)} kW`;
+  simEl('oMot').textContent = fmt(motor, motor < 1 ? 2 : 1) + ' kW';
+  simEl('oMot2').textContent = `${fmt(motor / 0.7457, 1)} HP · 4-pole, 1440 RPM · drive ratio ${fmt(1440 / N, 1)} : 1`;
+  const st = [];
+  if (bypass > 0) st.push(['warn', `Demand exceeds the relief setting (${fmt(Pset)} kg/cm²): the relief valve lifts and returns ${fmt(bypass * 100)} % of the flow to tank.`]);
+  else if (P > Prated * 0.95) st.push(['warn', `Close to the rated ${fmt(Prated)} kg/cm²: the relief valve will start to lift.`]);
+  else st.push(['ok', 'Pressure within the rating for this plunger.']);
+  if (rodPct != null) st.push([rodPct > 100 ? 'warn' : 'ok', `Plunger load ${fmt(rodKgf * GRAV / 1000, 1)} kN = ${fmt(rodPct)} % of the ${m.model} frame rating.`]);
+  if (cav > 0) st.push(['warn', `Cavitation risk: NPSH available ${fmt(NPSHa, 1)} m < required ${fmt(NPSHr, 1)} m. Raise the liquid level, shorten or enlarge the suction pipe, or reduce speed.`]);
+  else st.push(['ok', `Suction OK: NPSH available ${fmt(NPSHa, 1)} m ≥ required ${fmt(NPSHr, 1)} m.`]);
+  if (key === 'triplex' && Hs < 2) st.push(['warn', 'BPPL triplex manual: positive suction of at least 2 m water head is required.']);
+  simEl('oStatus').innerHTML = st.map(([c, t]) => `<li class="${c}">${t}</li>`).join('');
+  const rows = [
+    ['Stroke', `${fmt(s * 1000, 1)} mm${metering ? ` (${Math.round(strokePct * 100)} % of ${fmt(m.stroke * 1000, 1)} mm)` : ''} · derived from the BPPL chart`],
+    ['Plunger', key === 'test-pump' ? `${d} mm · ${n} plunger` : `${d} mm · ${n} plunger${n > 1 ? 's at 120°' : ''}`],
+    ['Theoretical displacement', `${fmt(Qth * 3.6e6, 1)} l/h`],
+    ['Volumetric efficiency', `${fmt(etaV * 100, 1)} % (slip + ${liq.name.toLowerCase()} compression at ${fmt(P)} kg/cm²)`],
+    ['BPPL chart at this speed', `${fmt(chart, 1)} l/h`],
+    ['Mean plunger speed', `${fmt(vPl, 2)} m/s`],
+    ['Discharge flow pulsation', `${fmt(puls * 100)} % peak-to-peak${damp ? ' (with dampener)' : ''}`],
+    ['Relief valve', `set ${fmt(Pset)} kg/cm²${bypass > 0 ? ` · bypassing ${fmt(bypass * 100)} %` : ' · closed'}`],
+    ['Suction velocity', `${fmt(vPipe, 2)} m/s in ${dp} mm bore · friction ${fmt(hf, 2)} m`],
+    ['NPSH available / required', `${fmt(NPSHa, 1)} m / ${fmt(NPSHr, 1)} m (acceleration head ${fmt(hAcc, 1)} m)`],
+  ];
+  simEl('oDetails').innerHTML = rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
+  simEl('oMethod').innerHTML = `<p><b>From BPPL data:</b> plunger sizes, rated pressures and speeds; stroke derived from the capacity chart (triplex at 100 % and metering at 90 % volumetric efficiency, as the chart notes); frame rod-load rating = rated pressure × plunger area; UFF-30 power from the BPPL BHP chart; metering acceleration head from the formula in the BPPL metering-pump manual; the 2 m positive-suction requirement from the BPPL triplex manual.</p>
+    <p><b>Engineering assumptions (typical values, not BPPL test data):</b> volumetric slip ${fmt((1 - eta0) * 100)} %; clearance-to-swept volume ratio ${C}; mechanical efficiency ${key === 'test-pump' ? 'from chart' : fmt({ triplex: 90, metering: 50, 'triplex-metering': 80 }[key]) + ' %'}; relief valve set at the rated pressure with 10 % accumulation; connecting-rod ratio r/L = 0.2; dampener removes ~90 % of pulsation; pipe friction factor 0.025; 1.0 m valve loss in NPSH required; Hydraulic Institute acceleration-head constants; liquid properties at about 25 °C; open tank at sea level.</p>
+    <p>For a guaranteed duty point, send the enquiry: BPPL engineers confirm the selection against the actual liquid, temperature and piping.</p>`;
+  simEl('oQuote').href = `contact.html?product=${key}&model=${encodeURIComponent(m.model + (key === 'test-pump' ? '' : ' / ' + d + ' mm plunger') + ' / ' + liq.name + ' / ' + N + ' ' + unit)}&flow=${encodeURIComponent(fmt(lph, 1) + ' l/h')}&press=${encodeURIComponent(fmt(P, 1))}`;
+  // drive the 3D model with the same numbers
+  const real = simEl('simReal').checked;
+  viewer.setGeom({ stroke: m.stroke, d: d / 1000, ratio: 1440 / N });
+  viewer.setStroke(metering ? strokePct : 1);
+  viewer.setOperating({ rpm: N, timeScale: real ? 1 : Math.min(1, 40 / N), pressure: P, pmax: Prated, bypass, cav, area: A,
+    qMean: Qp, color: liq.color, gaugeMax: niceGaugeMax(Pset), damp, flow: simEl('simFlow').checked });
 }
 ['simSpeed', 'simStroke', 'simP'].forEach(id => simEl(id).addEventListener('input', simUpdate));
+['simHs', 'simL', 'simD', 'simLiquid', 'simReal', 'simDamp'].forEach(id => simEl(id).addEventListener('change', simUpdate));
+['simHs', 'simL', 'simD'].forEach(id => simEl(id).addEventListener('input', simUpdate));
 simEl('simModel').addEventListener('change', () => fillPlungers(simKey, true));
 simEl('simPlunger').addEventListener('change', () => setPressureRange(simKey, true));
-simEl('simDamp').addEventListener('change', simUpdate);
+simEl('simSound').addEventListener('change', () => viewer.setSound(simEl('simSound').checked));
 simEl('simFlow').addEventListener('change', () => {
   const on = simEl('simFlow').checked;
   if (on !== (tXray.getAttribute('aria-pressed') === 'true')) tXray.click();

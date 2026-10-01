@@ -429,3 +429,21 @@ h1,h2{text-wrap:balance}
 .sim-status.warn{background:#fdecec;color:#b3261e}
 @media (max-width:900px){.sim{grid-template-columns:1fr;padding:var(--s5)}}
 @media (max-width:520px){.sim-out{grid-template-columns:1fr}.sim-grid2{grid-template-columns:1fr}}
+
+/* simulator: engineering detail */
+.sim-grid2 .span2{grid-column:1/-1}
+.sim-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s2)}
+.sim-grid3 .input{padding:10px 12px}
+.sim-sub{font-size:13px;font-weight:600;color:var(--text);margin:var(--s5) 0 var(--s2)}
+ul.sim-status{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+ul.sim-status li{font-size:14px;font-weight:600;padding:9px 12px;border-radius:var(--r-md);line-height:1.35}
+ul.sim-status li.ok{background:#eef7ee;color:#1b6b2a}
+ul.sim-status li.warn{background:#fdecec;color:#b3261e}
+.sim-details{grid-column:1/-1;margin:0}
+.sim-details>div{display:grid;grid-template-columns:42% 1fr;gap:var(--s3);padding:8px 0;border-top:1px solid var(--divider-soft);font-size:14px}
+.sim-details dt{color:var(--text-2)}
+.sim-details dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+.sim-method{grid-column:1/-1;font-size:13px;color:var(--text-2)}
+.sim-method summary{cursor:pointer;color:var(--primary);font-weight:600;font-size:14px;padding:6px 0}
+.sim-method p{margin:8px 0 0}
+@media (max-width:520px){.sim-grid3{grid-template-columns:1fr 1fr}.sim-details>div{grid-template-columns:1fr}}
